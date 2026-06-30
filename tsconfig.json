@@ -1,0 +1,144 @@
+{
+  "compilerOptions": {
+    /* ====================================================== */
+    /* Language & Runtime                                     */
+    /* ====================================================== */
+
+    "target": "ES2022",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ],
+
+    /* ====================================================== */
+    /* JavaScript Support                                     */
+    /* ====================================================== */
+
+    "allowJs": false,
+    "checkJs": false,
+
+    /* ====================================================== */
+    /* Type Safety                                            */
+    /* ====================================================== */
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* ====================================================== */
+    /* Emit                                                   */
+    /* ====================================================== */
+
+    "noEmit": true,
+    "incremental": true,
+
+    /* ====================================================== */
+    /* Modules                                                */
+    /* ====================================================== */
+
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    "isolatedModules": true,
+
+    "resolveJsonModule": true,
+
+    /* ====================================================== */
+    /* React / Next                                           */
+    /* ====================================================== */
+
+    "jsx": "preserve",
+
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+
+    /* ====================================================== */
+    /* Performance                                            */
+    /* ====================================================== */
+
+    "skipLibCheck": true,
+
+    /* ====================================================== */
+    /* Paths                                                  */
+    /* ====================================================== */
+
+    "baseUrl": ".",
+
+    "paths": {
+      "@/*": ["./*"],
+
+      "@/app/*": ["./app/*"],
+
+      "@/components/*": [
+        "./components/*"
+      ],
+
+      "@/constants/*": [
+        "./constants/*"
+      ],
+
+      "@/hooks/*": [
+        "./hooks/*"
+      ],
+
+      "@/lib/*": [
+        "./lib/*"
+      ],
+
+      "@/types/*": [
+        "./types/*"
+      ],
+
+      "@/stores/*": [
+        "./stores/*"
+      ],
+
+      "@/engine/*": [
+        "./engine/*"
+      ],
+
+      "@/renderer/*": [
+        "./renderer/*"
+      ],
+
+      "@/world/*": [
+        "./world/*"
+      ],
+
+      "@/interaction/*": [
+        "./interaction/*"
+      ],
+
+      "@/performance/*": [
+        "./performance/*"
+      ],
+
+      "@/shaders/*": [
+        "./shaders/*"
+      ],
+
+      "@/styles/*": [
+        "./styles/*"
+      ]
+    }
+  },
+
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+
+  "exclude": [
+    "node_modules"
+  ]
+}

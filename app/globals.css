@@ -1,0 +1,253 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =======================================================
+   GHOST_CODE DESIGN SYSTEM
+   Apple + Stripe + Vercel + Linear + Cinematic R3F
+======================================================= */
+
+:root {
+  /* Base colors */
+  --background: #05070d;
+  --foreground: #f8fafc;
+
+  /* Glass */
+  --glass: rgba(13, 42, 69, 0.55);
+  --glass-border: rgba(0, 217, 255, 0.18);
+
+  /* Core */
+  --core: #00ffff;
+  --core-glow: #3fe8ff;
+
+  /* Ghost */
+  --ghost: #ff4d6d;
+  --ghost-dark: #7a001b;
+
+  /* UI */
+  --panel: rgba(9, 18, 31, 0.75);
+
+  /* Effects */
+  --blur-glass: 20px;
+  --blur-cinematic: 40px;
+
+  /* Layout */
+  --radius-card: 24px;
+  --radius-panel: 32px;
+}
+
+/* =======================================================
+   RESET
+======================================================= */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* =======================================================
+   DOCUMENT
+======================================================= */
+
+html {
+  width: 100%;
+  height: 100%;
+
+  background: var(--background);
+
+  scroll-behavior: auto;
+
+  overflow-x: hidden;
+
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  width: 100%;
+  min-height: 100vh;
+
+  background: var(--background);
+
+  color: var(--foreground);
+
+  overflow-x: hidden;
+
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+}
+
+/* =======================================================
+   NEXT ROOT
+======================================================= */
+
+#__next {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* =======================================================
+   CANVAS
+======================================================= */
+
+canvas {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  outline: none;
+
+  touch-action: none;
+
+  user-select: none;
+}
+
+/* =======================================================
+   SELECTION
+======================================================= */
+
+::selection {
+  background: rgba(0, 217, 255, 0.3);
+}
+
+/* =======================================================
+   SCROLLBAR
+======================================================= */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #05070d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 217, 255, 0.25);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 217, 255, 0.45);
+}
+
+/* =======================================================
+   CINEMATIC SECTION
+======================================================= */
+
+.section {
+  position: relative;
+
+  width: 100%;
+
+  min-height: 100vh;
+
+  overflow: hidden;
+}
+
+/* =======================================================
+   GLASS
+======================================================= */
+
+.glass {
+  background: var(--glass);
+
+  border: 1px solid var(--glass-border);
+
+  backdrop-filter: blur(var(--blur-glass));
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+
+  border-radius: var(--radius-card);
+
+  box-shadow:
+    0px 8px 32px rgba(0,0,0,0.35),
+    0px 0px 30px rgba(0,217,255,0.10);
+}
+
+/* =======================================================
+   CORE GLOW
+======================================================= */
+
+.core-glow {
+  box-shadow:
+    0px 0px 30px rgba(0,255,255,0.25),
+    0px 0px 80px rgba(0,255,255,0.15),
+    0px 0px 140px rgba(0,255,255,0.08);
+}
+
+/* =======================================================
+   GHOST GLOW
+======================================================= */
+
+.ghost-glow {
+  box-shadow:
+    0px 0px 30px rgba(255,77,109,0.35),
+    0px 0px 70px rgba(255,77,109,0.15),
+    0px 0px 140px rgba(255,77,109,0.05);
+}
+
+/* =======================================================
+   HUD PANEL
+======================================================= */
+
+.hud {
+  background: var(--panel);
+
+  border: 1px solid rgba(255,255,255,0.08);
+
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+
+  border-radius: var(--radius-panel);
+}
+
+/* =======================================================
+   OVERLAYS
+======================================================= */
+
+.overlay {
+  position: absolute;
+
+  inset: 0;
+
+  pointer-events: none;
+}
+
+/* =======================================================
+   GRADIENT TEXT
+======================================================= */
+
+.text-cyan-gradient {
+  background: linear-gradient(
+    180deg,
+    #ffffff,
+    #3fe8ff
+  );
+
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* =======================================================
+   PERFORMANCE
+======================================================= */
+
+img,
+video {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  font: inherit;
+}
