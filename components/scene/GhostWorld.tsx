@@ -15,9 +15,14 @@ import {
 import * as THREE from "three";
 
 import { COLORS } from "@/constants/colors";
-import { SCENE } from "@/constants/scene";
+import {
+  ARCHITECTURE_GRAPH,
+  SCENE,
+} from "@/constants/scene";
 import { ParticleSystem } from "@/components/particles/ParticleSystem";
+import { useAnimationStore } from "@/stores/animation.store";
 import { useSceneStore } from "@/stores/scene.store";
+import { WorldAnimationController } from "./WorldAnimationController";
 
 type ArchitectureKind =
   | "core"
@@ -42,174 +47,28 @@ interface ConnectionSpec {
   packetOffset: number;
 }
 
-const NODES: NodeSpec[] = [
-  {
-    id: "core",
-    label: "Core Repository",
-    kind: "core",
-    position:
-      SCENE.nodePositions.core,
-    size: SCENE.nodeSize.core,
-    accent: COLORS.cyan.core,
-    glow: COLORS.cyan.bloom,
-  },
-  {
-    id: "frontend",
-    label: "Frontend",
-    kind: "module",
-    position:
-      SCENE.nodePositions.frontend,
-    size: SCENE.nodeSize.module,
-    accent: COLORS.cyan.glow,
-    glow: COLORS.cyan.bloom,
-  },
-  {
-    id: "apiGateway",
-    label: "API Gateway",
-    kind: "module",
-    position:
-      SCENE.nodePositions.apiGateway,
-    size: SCENE.nodeSize.module,
-    accent: COLORS.cyan.glow,
-    glow: COLORS.cyan.bloom,
-  },
-  {
-    id: "auth",
-    label: "Authentication",
-    kind: "module",
-    position:
-      SCENE.nodePositions.auth,
-    size: SCENE.nodeSize.module,
-    accent: COLORS.cyan.glow,
-    glow: COLORS.cyan.bloom,
-  },
-  {
-    id: "analytics",
-    label: "Analytics",
-    kind: "module",
-    position:
-      SCENE.nodePositions.analytics,
-    size: SCENE.nodeSize.module,
-    accent: COLORS.cyan.glow,
-    glow: COLORS.cyan.bloom,
-  },
-  {
-    id: "database",
-    label: "Database",
-    kind: "module",
-    position:
-      SCENE.nodePositions.database,
-    size: SCENE.nodeSize.module,
-    accent: COLORS.cyan.glow,
-    glow: COLORS.cyan.bloom,
-  },
-  {
-    id: "cicd",
-    label: "CI/CD",
-    kind: "module",
-    position:
-      SCENE.nodePositions.cicd,
-    size: SCENE.nodeSize.module,
-    accent: COLORS.cyan.glow,
-    glow: COLORS.cyan.bloom,
-  },
-  {
-    id: "ghostA",
-    label: "Ghost_A",
-    kind: "ghost",
-    position:
-      SCENE.ghostPositions.ghostA,
-    size: SCENE.nodeSize.ghost,
-    accent: COLORS.ghost.core,
-    glow: COLORS.ghost.rim,
-  },
-  {
-    id: "ghostB",
-    label: "Ghost_B",
-    kind: "ghost",
-    position:
-      SCENE.ghostPositions.ghostB,
-    size: SCENE.nodeSize.ghost,
-    accent: COLORS.ghost.core,
-    glow: COLORS.ghost.rim,
-  },
-  {
-    id: "ghostC",
-    label: "Ghost_C",
-    kind: "ghost",
-    position:
-      SCENE.ghostPositions.ghostC,
-    size: SCENE.nodeSize.ghost,
-    accent: COLORS.ghost.core,
-    glow: COLORS.ghost.rim,
-  },
-];
+const NODES: NodeSpec[] = ARCHITECTURE_GRAPH.nodes.map(
+  (node) => ({
+    id: node.id,
+    label: node.label,
+    kind: node.kind,
+    position: node.position,
+    size: node.size,
+    accent: node.accent,
+    glow: node.glow,
+  }),
+);
 
-const CONNECTIONS: ConnectionSpec[] = [
-  {
-    id: "core-frontend",
-    from: "core",
-    to: "frontend",
-    color: COLORS.cyan.glow,
-    packetOffset: 0.02,
-  },
-  {
-    id: "core-gateway",
-    from: "core",
-    to: "apiGateway",
-    color: COLORS.cyan.glow,
-    packetOffset: 0.18,
-  },
-  {
-    id: "core-auth",
-    from: "core",
-    to: "auth",
-    color: COLORS.cyan.glow,
-    packetOffset: 0.32,
-  },
-  {
-    id: "core-analytics",
-    from: "core",
-    to: "analytics",
-    color: COLORS.cyan.glow,
-    packetOffset: 0.46,
-  },
-  {
-    id: "core-database",
-    from: "core",
-    to: "database",
-    color: COLORS.cyan.glow,
-    packetOffset: 0.6,
-  },
-  {
-    id: "core-cicd",
-    from: "core",
-    to: "cicd",
-    color: COLORS.cyan.glow,
-    packetOffset: 0.74,
-  },
-  {
-    id: "ghostA-auth",
-    from: "ghostA",
-    to: "auth",
-    color: COLORS.ghost.core,
-    packetOffset: 0.15,
-  },
-  {
-    id: "ghostB-core",
-    from: "ghostB",
-    to: "core",
-    color: COLORS.ghost.core,
-    packetOffset: 0.38,
-  },
-  {
-    id: "ghostC-database",
-    from: "ghostC",
-    to: "database",
-    color: COLORS.ghost.core,
-    packetOffset: 0.57,
-  },
-];
+const CONNECTIONS: ConnectionSpec[] =
+  ARCHITECTURE_GRAPH.connections.map(
+    (connection) => ({
+      id: connection.id,
+      from: connection.from,
+      to: connection.to,
+      color: connection.color,
+      packetOffset: connection.packetOffset,
+    }),
+  );
 
 function getReveal(
   scrollProgress: number,
@@ -268,18 +127,9 @@ function ArchitectureNode({
   node: NodeSpec;
   scrollProgress: number;
 }) {
-  const groupRef =
-    useRef<THREE.Group>(null);
-  const glassRef =
-    useRef<THREE.MeshPhysicalMaterial>(
-      null,
-    );
-  const ringRef =
-    useRef<THREE.MeshBasicMaterial>(
-      null,
-    );
-  const lightRef =
-    useRef<THREE.PointLight>(null);
+  const globalTime = useAnimationStore(
+    (state) => state.globalTime,
+  );
 
   const hoveredNodeId =
     useSceneStore(
@@ -342,97 +192,72 @@ function ArchitectureNode({
     };
   }, [isHovered]);
 
-  useFrame((state, delta) => {
-    if (
-      !groupRef.current ||
-      !glassRef.current ||
-      !ringRef.current ||
-      !lightRef.current
-    ) {
-      return;
-    }
+  const pulse =
+    0.5 +
+    Math.sin(
+      globalTime * 1.4 +
+        node.position[0],
+    ) *
+      0.5;
 
-    const time =
-      state.clock.elapsedTime;
-    const pulse =
-      0.5 +
+  const hoverBoost = isSelected
+    ? 1
+    : isHovered
+    ? 0.7
+    : 0;
+
+  const ghostFlicker = isGhost
+    ? 0.7 +
       Math.sin(
-        time * 1.4 +
-          node.position[0],
+        globalTime * 7.5 +
+          node.position[1],
       ) *
-        0.5;
+        0.18
+    : 1;
 
-    const hoverBoost = isSelected
-      ? 1
-      : isHovered
-      ? 0.7
-      : 0;
+  const baseY =
+    node.position[1] +
+    Math.sin(
+      globalTime * 0.55 +
+        node.position[2],
+    ) *
+      (isGhost ? 0.18 : 0.12);
 
-    const ghostFlicker = isGhost
-      ? 0.7 +
-        Math.sin(
-          time * 7.5 +
-            node.position[1],
-        ) *
-          0.18
-      : 1;
+  const rotationY =
+    globalTime *
+      (isGhost ? 0.18 : 0.08) +
+    node.position[0] * 0.02;
 
-    const baseY =
-      node.position[1] +
-      Math.sin(
-        time * 0.55 +
-          node.position[2],
-      ) *
-        (isGhost
-          ? 0.18
-          : 0.12);
+  const scale =
+    0.7 + reveal * 0.3 + hoverBoost * 0.08;
 
-    groupRef.current.position.y =
-      THREE.MathUtils.lerp(
-        groupRef.current.position.y,
-        baseY,
-        1 - Math.exp(-3 * delta),
-      );
+  const emissiveIntensity =
+    (isCore ? 0.85 : 0.4) *
+    reveal *
+    ghostFlicker *
+    (1 + hoverBoost * 0.9);
 
-    groupRef.current.rotation.y +=
-      delta *
-      (isGhost
-        ? 0.18
-        : 0.08);
+  const ringOpacity =
+    0.08 +
+    reveal * 0.14 +
+    pulse * 0.06 +
+    hoverBoost * 0.12;
 
-    groupRef.current.scale.setScalar(
-      0.7 +
-        reveal * 0.3 +
-        hoverBoost * 0.08,
-    );
-
-    glassRef.current.emissiveIntensity =
-      (isCore ? 0.85 : 0.4) *
-      reveal *
-      ghostFlicker *
-      (1 + hoverBoost * 0.9);
-
-    glassRef.current.opacity =
-      0.22 +
-      reveal * 0.58;
-
-    ringRef.current.opacity =
-      0.08 +
-      reveal * 0.14 +
-      pulse * 0.06 +
-      hoverBoost * 0.12;
-
-    lightRef.current.intensity =
-      reveal *
-      ghostFlicker *
-      (isCore ? 3.4 : 1.8) *
-      (1 + hoverBoost);
-  });
+  const lightIntensity =
+    reveal *
+    ghostFlicker *
+    (isCore ? 3.4 : 1.8) *
+    (1 + hoverBoost);
 
   return (
     <group
-      ref={groupRef}
-      position={node.position}
+      position={[
+        node.position[0],
+        baseY,
+        node.position[2],
+      ]}
+      rotation={[0, rotationY, 0]}
+      scale={scale}
       onPointerOver={(
         event,
       ) => {
@@ -481,9 +306,9 @@ function ArchitectureNode({
           ]}
         />
         <meshBasicMaterial
-          ref={ringRef}
           color={node.glow}
           transparent
+          opacity={ringOpacity}
           depthWrite={false}
         />
       </mesh>
@@ -494,7 +319,6 @@ function ArchitectureNode({
         smoothness={6}
       >
         <meshPhysicalMaterial
-          ref={glassRef}
           color={
             isGhost
               ? "#1a0911"
@@ -508,6 +332,7 @@ function ArchitectureNode({
           ior={1.16}
           transparent
           opacity={0.6}
+          emissiveIntensity={emissiveIntensity}
         />
       </RoundedBox>
 
@@ -532,12 +357,12 @@ function ArchitectureNode({
       </mesh>
 
       <pointLight
-        ref={lightRef}
         color={node.glow}
         distance={
           isCore ? 10 : 7
         }
         decay={2}
+        intensity={lightIntensity}
       />
 
       {(isCore || isGhost) && (
@@ -593,16 +418,9 @@ function ConnectionBeam({
   >;
   scrollProgress: number;
 }) {
-  const packetRef =
-    useRef<THREE.Mesh>(null);
-  const beamMaterialRef =
-    useRef<THREE.MeshBasicMaterial>(
-      null,
-    );
-  const glowMaterialRef =
-    useRef<THREE.MeshBasicMaterial>(
-      null,
-    );
+  const globalTime = useAnimationStore(
+    (state) => state.globalTime,
+  );
   const point =
     useMemo(
       () => new THREE.Vector3(),
@@ -699,53 +517,37 @@ function ConnectionBeam({
           0.5,
         );
 
-  useFrame((state) => {
-    const t =
-      (state.clock.elapsedTime *
-        0.18 +
-        connection.packetOffset) %
-      1;
+  const packetT =
+    (globalTime * 0.18 +
+      connection.packetOffset) %
+    1;
 
-    curve.getPointAt(t, point);
+  curve.getPointAt(packetT, point);
 
-    if (packetRef.current) {
-      packetRef.current.position.copy(
-        point,
-      );
-    }
-
-    if (beamMaterialRef.current) {
-      beamMaterialRef.current.opacity =
-        0.2 + reveal * 0.6;
-    }
-
-    if (glowMaterialRef.current) {
-      glowMaterialRef.current.opacity =
-        0.06 + reveal * 0.16;
-    }
-  });
+  const beamOpacity = 0.2 + reveal * 0.6;
+  const glowOpacity = 0.06 + reveal * 0.16;
 
   return (
     <group>
       <mesh geometry={glowGeometry}>
         <meshBasicMaterial
-          ref={glowMaterialRef}
           color={connection.color}
           transparent
+          opacity={glowOpacity}
           depthWrite={false}
         />
       </mesh>
 
       <mesh geometry={beamGeometry}>
         <meshBasicMaterial
-          ref={beamMaterialRef}
           color={connection.color}
           transparent
+          opacity={beamOpacity}
           depthWrite={false}
         />
       </mesh>
 
-      <mesh ref={packetRef}>
+      <mesh position={point}>
         <sphereGeometry
           args={[0.09, 16, 16]}
         />
@@ -762,36 +564,26 @@ function AtmosphereShell({
 }: {
   scrollProgress: number;
 }) {
-  const shellRef =
-    useRef<THREE.Group>(null);
+  const globalTime = useAnimationStore(
+    (state) => state.globalTime,
+  );
 
-  useFrame((state, delta) => {
-    if (!shellRef.current) {
-      return;
-    }
-
-    const time =
-      state.clock.elapsedTime;
-
-    shellRef.current.rotation.y +=
-      delta * 0.025;
-
-    shellRef.current.position.y =
-      Math.sin(time * 0.18) *
-      0.16;
-
-    shellRef.current.scale.setScalar(
-      1 +
-        Math.sin(
-          scrollProgress *
-            Math.PI,
-        ) *
-          0.025,
-    );
-  });
+  const shellScale =
+    1 +
+    Math.sin(scrollProgress * Math.PI) *
+      0.025;
 
   return (
-    <group ref={shellRef}>
+    <group
+      position={[
+        0,
+        Math.sin(globalTime * 0.18) *
+          0.16,
+        0,
+      ]}
+      rotation={[0, globalTime * 0.025, 0]}
+      scale={shellScale}
+    >
       <mesh
         rotation={[
           -Math.PI / 2,
@@ -846,10 +638,11 @@ export function GhostWorld({
 }: {
   scrollProgress: number;
 }) {
-  const rootRef =
-    useRef<THREE.Group>(null);
   const nodeLookup =
     useNodeLookup();
+  const globalTime = useAnimationStore(
+    (state) => state.globalTime,
+  );
   const setSceneReady =
     useSceneStore(
       (state) =>
@@ -877,50 +670,24 @@ export function GhostWorld({
     setRevealProgress,
   ]);
 
-  useFrame((state, delta) => {
-    if (!rootRef.current) {
-      return;
-    }
+  const rootPosition: [number, number, number] = [
+    Math.sin(globalTime * 0.18) * 0.4,
+    Math.cos(globalTime * 0.12) * 0.22,
+    0,
+  ];
 
-    const time =
-      state.clock.elapsedTime;
-    const driftX =
-      Math.sin(time * 0.18) *
-      0.4;
-    const driftY =
-      Math.cos(time * 0.12) *
-      0.22;
-
-    rootRef.current.position.x =
-      THREE.MathUtils.lerp(
-        rootRef.current.position.x,
-        driftX,
-        1 - Math.exp(-2.2 * delta),
-      );
-    rootRef.current.position.y =
-      THREE.MathUtils.lerp(
-        rootRef.current.position.y,
-        driftY,
-        1 - Math.exp(-2.2 * delta),
-      );
-    rootRef.current.rotation.y =
-      THREE.MathUtils.lerp(
-        rootRef.current.rotation.y,
-        -0.12 +
-          scrollProgress * 0.24,
-        1 - Math.exp(-2.6 * delta),
-      );
-    rootRef.current.rotation.x =
-      THREE.MathUtils.lerp(
-        rootRef.current.rotation.x,
-        0.04 -
-          scrollProgress * 0.08,
-        1 - Math.exp(-2.6 * delta),
-      );
-  });
+  const rootRotation: [number, number, number] = [
+    0.04 - scrollProgress * 0.08,
+    -0.12 + scrollProgress * 0.24,
+    0,
+  ];
 
   return (
-    <group ref={rootRef}>
+    <group position={rootPosition} rotation={rootRotation}>
+      <WorldAnimationController
+        scrollProgress={scrollProgress}
+      />
+
       <AtmosphereShell
         scrollProgress={
           scrollProgress

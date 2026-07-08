@@ -4,9 +4,9 @@ import {
   createContext,
   useContext,
   useMemo,
-  useState,
-  useCallback,
 } from "react";
+
+import { useSceneStore } from "@/stores/scene.store";
 
 import type {
   SceneContextValue,
@@ -21,65 +21,58 @@ const SceneContext =
 export function SceneProvider({
   children,
 }: SceneProviderProps) {
-  const [
-    hoveredNodeId,
-    setHoveredNodeId,
-  ] =
-    useState<string | null>(
-      null,
-    );
+  const nodes = useSceneStore(
+    (state) => Object.values(state.nodes),
+  );
 
-  const [
-    selectedNodeId,
-    setSelectedNodeId,
-  ] =
-    useState<string | null>(
-      null,
-    );
+  const connections = useSceneStore(
+    (state) => Object.values(state.connections),
+  );
 
-  const [
-    introComplete,
-    setIntroComplete,
-  ] = useState(false);
+  const hoveredNodeId = useSceneStore(
+    (state) => state.hoveredNodeId,
+  );
 
-  const [
-    scrollProgress,
-    setScrollProgress,
-  ] = useState(0);
+  const selectedNodeId = useSceneStore(
+    (state) => state.selectedNodeId,
+  );
 
-  const [
-    activeSection,
-    setActiveSection,
-  ] = useState(0);
+  const introComplete = useSceneStore(
+    (state) => state.sceneReady,
+  );
 
-  const setHoveredNode =
-    useCallback(
-      (
-        id: string | null,
-      ) =>
-        setHoveredNodeId(
-          id,
-        ),
-      [],
-    );
+  const scrollProgress = useSceneStore(
+    (state) => state.revealProgress,
+  );
 
-  const setSelectedNode =
-    useCallback(
-      (
-        id: string | null,
-      ) =>
-        setSelectedNodeId(
-          id,
-        ),
-      [],
-    );
+  const activeSection = 0;
+
+  const setHoveredNode = useSceneStore(
+    (state) => state.setHoveredNode,
+  );
+
+  const setSelectedNode = useSceneStore(
+    (state) => state.setSelectedNode,
+  );
+
+  const setIntroComplete = useSceneStore(
+    (state) => state.setSceneReady,
+  );
+
+  const setScrollProgress = useSceneStore(
+    (state) => state.setRevealProgress,
+  );
+
+  const setActiveSection = () => {
+    return;
+  };
 
   const value =
     useMemo(
       () => ({
-        nodes: [],
+        nodes,
 
-        connections: [],
+        connections,
 
         hoveredNodeId,
 
@@ -102,6 +95,8 @@ export function SceneProvider({
         setActiveSection,
       }),
       [
+        nodes,
+        connections,
         hoveredNodeId,
         selectedNodeId,
         introComplete,

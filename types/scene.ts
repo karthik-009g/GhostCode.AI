@@ -2,12 +2,7 @@ import type { ReactNode } from "react";
 import type * as THREE from "three";
 
 export type NodeType =
-  | "frontend"
-  | "apiGateway"
-  | "authentication"
-  | "analytics"
-  | "database"
-  | "cicd"
+  | "module"
   | "core"
   | "ghost";
 
@@ -17,12 +12,18 @@ export type NodeStatus =
   | "broken"
   | "ghost";
 
+export type ConnectionStatus =
+  | "active"
+  | "broken"
+  | "ghost"
+  | "dormant";
+
 export interface SceneNode {
   id: string;
 
   label: string;
 
-  type: NodeType;
+  kind: NodeType;
 
   status: NodeStatus;
 
@@ -30,31 +31,25 @@ export interface SceneNode {
 
   size: [number, number, number];
 
-  hovered?: boolean;
+  emissiveIntensity: number;
 
-  selected?: boolean;
-
-  opacity?: number;
-
-  pulse?: number;
+  visible: boolean;
 }
 
 export interface SceneConnection {
   id: string;
 
-  from: string;
+  fromId: string;
 
-  to: string;
+  toId: string;
 
-  active: boolean;
+  status: ConnectionStatus;
 
-  broken: boolean;
+  color: string;
 
-  glowing?: boolean;
+  pulseOffset: number;
 
-  pulse?: number;
-
-  strength?: number;
+  visible: boolean;
 }
 
 export interface SceneState {

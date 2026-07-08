@@ -1,31 +1,18 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
-import { SCENE } from "@/constants/scene";
-
-export type NodeType =
-  | "module"
-  | "core"
-  | "ghost";
-
-export type NodeStatus =
-  | "healthy"
-  | "orphaned"
-  | "broken"
-  | "ghost";
-
-export type ConnectionStatus =
-  | "active"
-  | "broken"
-  | "ghost"
-  | "dormant";
+import {
+  ARCHITECTURE_GRAPH,
+  type ArchitectureConnectionDefinition,
+  type ArchitectureNodeDefinition,
+} from "@/constants/scene";
 
 export interface SceneNode {
   id: string;
   label: string;
 
-  type: NodeType;
-  status: NodeStatus;
+  kind: ArchitectureNodeDefinition["kind"];
+  status: ArchitectureNodeDefinition["status"];
 
   position: [number, number, number];
   size: [number, number, number];
@@ -41,7 +28,9 @@ export interface SceneConnection {
   fromId: string;
   toId: string;
 
-  status: ConnectionStatus;
+  status: ArchitectureConnectionDefinition["status"];
+
+  color: string;
 
   pulseOffset: number;
 
@@ -126,27 +115,6 @@ interface SceneActions {
   ): void;
 }
 
-function createNode(
-  id: string,
-  label: string,
-  type: NodeType,
-  status: NodeStatus,
-  position: [number, number, number],
-  size: [number, number, number],
-  emissiveIntensity: number,
-): SceneNode {
-  return {
-    id,
-    label,
-    type,
-    status,
-    position,
-    size,
-    emissiveIntensity,
-    visible: false,
-  };
-}
-
 function getNode(
   nodes: Record<
     string,
@@ -207,107 +175,41 @@ function mergeConnection(
 const DEFAULT_NODES: Record<
   string,
   SceneNode
-> = {
-  core: createNode(
-    "core",
-    "Core Repository",
-    "core",
-    "healthy",
-    SCENE.nodePositions.core,
-    SCENE.nodeSize.core,
-    0.8,
-  ),
+> = Object.fromEntries(
+  ARCHITECTURE_GRAPH.nodes.map((node) => [
+    node.id,
+    {
+      id: node.id,
+      label: node.label,
+      kind: node.kind,
+      status: node.status,
+      position: node.position,
+      size: node.size,
+      emissiveIntensity: node.emissiveIntensity,
+      visible: node.visible,
+    },
+  ]),
+) as Record<string, SceneNode>;
 
-  frontend: createNode(
-    "frontend",
-    "Frontend",
-    "module",
-    "healthy",
-    SCENE.nodePositions.frontend,
-    SCENE.nodeSize.module,
-    0.4,
+const DEFAULT_CONNECTIONS: Record<
+  string,
+  SceneConnection
+> = Object.fromEntries(
+  ARCHITECTURE_GRAPH.connections.map(
+    (connection) => [
+      connection.id,
+      {
+        id: connection.id,
+        fromId: connection.from,
+        toId: connection.to,
+        status: connection.status,
+        color: connection.color,
+        pulseOffset: connection.packetOffset,
+        visible: connection.visible,
+      },
+    ],
   ),
-
-  apiGateway: createNode(
-    "apiGateway",
-    "API Gateway",
-    "module",
-    "healthy",
-    SCENE.nodePositions.apiGateway,
-    SCENE.nodeSize.module,
-    0.4,
-  ),
-
-  auth: createNode(
-    "auth",
-    "Authentication",
-    "module",
-    "healthy",
-    SCENE.nodePositions.auth,
-    SCENE.nodeSize.module,
-    0.4,
-  ),
-
-  analytics: createNode(
-    "analytics",
-    "Analytics",
-    "module",
-    "healthy",
-    SCENE.nodePositions.analytics,
-    SCENE.nodeSize.module,
-    0.4,
-  ),
-
-  database: createNode(
-    "database",
-    "Database",
-    "module",
-    "healthy",
-    SCENE.nodePositions.database,
-    SCENE.nodeSize.module,
-    0.4,
-  ),
-
-  cicd: createNode(
-    "cicd",
-    "CI/CD",
-    "module",
-    "healthy",
-    SCENE.nodePositions.cicd,
-    SCENE.nodeSize.module,
-    0.4,
-  ),
-
-  ghostA: createNode(
-    "ghostA",
-    "Ghost_A",
-    "ghost",
-    "ghost",
-    SCENE.ghostPositions.ghostA,
-    SCENE.nodeSize.ghost,
-    1.2,
-  ),
-
-  ghostB: createNode(
-    "ghostB",
-    "Ghost_B",
-    "ghost",
-    "ghost",
-    SCENE.ghostPositions.ghostB,
-    SCENE.nodeSize.ghost,
-    1.2,
-  ),
-
-  ghostC: createNode(
-    "ghostC",
-    "Ghost_C",
-    "ghost",
-    "ghost",
-    SCENE.ghostPositions.ghostC,
-    SCENE.nodeSize.ghost,
-    1.2,
-  ),
-};
+) as Record<string, SceneConnection>;
 
 export const useSceneStore =
   create<
@@ -318,7 +220,7 @@ export const useSceneStore =
       (set) => ({
         nodes: DEFAULT_NODES,
 
-        connections: {},
+        connections: DEFAULT_CONNECTIONS,
 
         hoveredNodeId: null,
 

@@ -4,6 +4,9 @@ import { useRef, useMemo, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
+import { RoadSystem as InfrastructureRoadSystem } from "@/components/infrastructure/RoadSystem";
+import { dampVector3 } from "@/lib/lerp";
+
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const CYAN = "#00e5ff";
@@ -765,69 +768,80 @@ function AtmosphereHaze() {
 function CinematicCamera() {
   const { camera } = useThree();
 
-  const mouse = useRef({ x: 0, y: 0 });
-  const smooth = useRef({ x: 0, y: 0 });
+  const smoothedPointer = useRef(
+    new THREE.Vector2(),
+  );
 
-  useEffect(() => {
-    const handle = (e: MouseEvent) => {
-      mouse.current.x =
-        (e.clientX / window.innerWidth - 0.5) * 2;
+  const desiredPosition = useRef(
+    new THREE.Vector3(0, 2.35, 15),
+  );
 
-      mouse.current.y =
-        -(e.clientY / window.innerHeight - 0.5) * 2;
-    };
+  const desiredTarget = useRef(
+    new THREE.Vector3(0, 1.9, -72),
+  );
 
-    window.addEventListener("mousemove", handle);
+  const currentTarget = useRef(
+    new THREE.Vector3(0, 1.9, -72),
+  );
 
-    return () =>
-      window.removeEventListener("mousemove", handle);
-  }, []);
+  const currentPosition = useRef(
+    new THREE.Vector3(0, 2.35, 15),
+  );
 
-  useFrame(() => {
-    const scroll =
-      window.scrollY /
-      Math.max(
-        1,
-        document.body.scrollHeight -
-          window.innerHeight
-      );
+  useFrame((state, delta) => {
+    const t = state.clock.elapsedTime;
 
-    smooth.current.x +=
-      (mouse.current.x - smooth.current.x) *
-      0.03;
+    const pointerX = state.pointer.x;
+    const pointerY = state.pointer.y;
 
-    smooth.current.y +=
-      (mouse.current.y - smooth.current.y) *
-      0.03;
+    smoothedPointer.current.x +=
+      (pointerX - smoothedPointer.current.x) *
+      (1 - Math.exp(-5 * delta));
 
-    const z =
-      THREE.MathUtils.lerp(
-        20,
-        -350,
-        scroll
-      );
+    smoothedPointer.current.y +=
+      (pointerY - smoothedPointer.current.y) *
+      (1 - Math.exp(-5 * delta));
 
-    const y =
-      THREE.MathUtils.lerp(
-        18,
-        8,
-        scroll
-      );
+    const breath =
+      Math.sin(t * 0.7) * 0.045;
 
-    camera.position.lerp(
-      new THREE.Vector3(
-        smooth.current.x * 4,
-        y,
-        z
-      ),
-      0.05
+    desiredPosition.current.set(
+      smoothedPointer.current.x * 1.35,
+      2.35 + smoothedPointer.current.y * 0.28 + breath,
+      15 + Math.abs(smoothedPointer.current.x) * 0.55,
+    );
+
+    desiredTarget.current.set(
+      smoothedPointer.current.x * 2.25,
+      1.9 + smoothedPointer.current.y * 0.42 + breath * 0.5,
+      -72,
+    );
+
+    dampVector3(
+      currentPosition.current,
+      desiredPosition.current,
+      4.5,
+      delta,
+    );
+
+    dampVector3(
+      currentTarget.current,
+      desiredTarget.current,
+      5.5,
+      delta,
+    );
+
+    camera.position.copy(
+      currentPosition.current,
     );
 
     camera.lookAt(
-      0,
-      2,
-      z - 80
+      currentTarget.current,
     );
+
+    camera.rotation.z =
+      smoothedPointer.current.x * -0.01 +
+      Math.sin(t * 0.35) * 0.0025;
   });
 
   return null;
@@ -970,10 +984,10 @@ export default function GhostCityPage() {
       <HUDOverlay />
       <Canvas
         camera={{
-  fov: 55,
+  fov: 52,
   near: 0.1,
   far: 1000,
-  position: [0, 16, 20],
+  position: [0, 2.35, 15],
 }}
         gl={{
           antialias: true,
@@ -989,7 +1003,7 @@ export default function GhostCityPage() {
 <Lighting />
 <CinematicCamera />
 
-<RoadSystem />
+<InfrastructureRoadSystem />
 <City />
 <HorizonCity />
 <Megastructures />
