@@ -64,6 +64,12 @@ interface SceneState {
   sceneReady: boolean;
 
   revealProgress: number;
+
+  corruptionLevel: number;
+
+  corruptedNodeIds: string[];
+
+  corruptedConnectionIds: string[];
 }
 
 interface SceneActions {
@@ -172,6 +178,129 @@ function mergeConnection(
   };
 }
 
+function createCorruptionState() {
+  return {
+    nodes: DEFAULT_NODES,
+    connections: DEFAULT_CONNECTIONS,
+    corruptionLevel: 0,
+    corruptedNodeIds: [] as string[],
+    corruptedConnectionIds: [] as string[],
+  };
+}
+
+function buildConnectionGraph() {
+  const adjacent: Record<string, string[]> = {};
+
+  Object.values(DEFAULT_CONNECTIONS).forEach((connection) => {
+  const from =
+    (adjacent[connection.fromId] ??= []);
+
+  const to =
+    (adjacent[connection.toId] ??= []);
+
+  from.push(connection.toId);
+  to.push(connection.fromId);
+});
+
+  return adjacent;
+}
+
+function applyGhostCorruption(
+  ghostAttackActive: boolean,
+  attackingGhostId: string | null,
+) {
+  if (!ghostAttackActive || !attackingGhostId) {
+    return createCorruptionState();
+  }
+
+  const adjacent = buildConnectionGraph();
+  const corruptedNodeIds = new Set<string>([
+    attackingGhostId,
+  ]);
+  const corruptedConnectionIds = new Set<string>();
+
+  const firstRing = adjacent[attackingGhostId] ?? [];
+  firstRing.forEach((nodeId) => {
+    corruptedNodeIds.add(nodeId);
+  });
+
+  firstRing.forEach((nodeId) => {
+    (adjacent[nodeId] ?? []).forEach((nextNodeId) => {
+      if (nextNodeId !== attackingGhostId) {
+        corruptedNodeIds.add(nextNodeId);
+      }
+    });
+  });
+
+  Object.values(DEFAULT_CONNECTIONS).forEach((connection) => {
+    const touchesGhost =
+      connection.fromId === attackingGhostId ||
+      connection.toId === attackingGhostId;
+    const touchesCorruption =
+      corruptedNodeIds.has(connection.fromId) ||
+      corruptedNodeIds.has(connection.toId);
+
+    if (touchesGhost) {
+      corruptedConnectionIds.add(connection.id);
+    } else if (touchesCorruption) {
+      corruptedConnectionIds.add(connection.id);
+    }
+  });
+
+  const nextNodes: Record<string, SceneNode> = {};
+  Object.entries(DEFAULT_NODES).forEach(([id, node]) => {
+    const isAttacker = id === attackingGhostId;
+    const isCorrupted = corruptedNodeIds.has(id);
+
+    nextNodes[id] = {
+      ...node,
+      status: isAttacker
+        ? "ghost"
+        : isCorrupted
+        ? node.kind === "core"
+          ? "broken"
+          : "orphaned"
+        : node.status,
+      visible: true,
+      emissiveIntensity: isAttacker
+        ? node.emissiveIntensity * 1.6
+        : isCorrupted
+        ? node.emissiveIntensity * 1.15
+        : node.emissiveIntensity,
+    };
+  });
+
+  const nextConnections: Record<string, SceneConnection> = {};
+  Object.entries(DEFAULT_CONNECTIONS).forEach(([id, connection]) => {
+    const isCorrupted = corruptedConnectionIds.has(id);
+
+    nextConnections[id] = {
+      ...connection,
+      status: isCorrupted
+        ? connection.status === "ghost"
+          ? "ghost"
+          : "broken"
+        : connection.status,
+      visible: true,
+      pulseOffset: isCorrupted
+        ? connection.pulseOffset + 0.11
+        : connection.pulseOffset,
+    };
+  });
+
+  const corruptionLevel =
+    corruptedNodeIds.size /
+    Object.keys(DEFAULT_NODES).length;
+
+  return {
+    nodes: nextNodes,
+    connections: nextConnections,
+    corruptionLevel,
+    corruptedNodeIds: Array.from(corruptedNodeIds),
+    corruptedConnectionIds: Array.from(corruptedConnectionIds),
+  };
+}
+
 const DEFAULT_NODES: Record<
   string,
   SceneNode
@@ -218,9 +347,7 @@ export const useSceneStore =
   >()(
     subscribeWithSelector(
       (set) => ({
-        nodes: DEFAULT_NODES,
-
-        connections: DEFAULT_CONNECTIONS,
+        ...createCorruptionState(),
 
         hoveredNodeId: null,
 
@@ -235,6 +362,12 @@ export const useSceneStore =
         sceneReady: false,
 
         revealProgress: 0,
+
+        corruptionLevel: 0,
+
+        corruptedNodeIds: [],
+
+        corruptedConnectionIds: [],
 
         registerNode: (
           node,
@@ -312,11 +445,22 @@ export const useSceneStore =
         setGhostAttack: (
           ghostAttackActive,
           attackingGhostId = null,
-        ) =>
+        ) => {
+          const corruptionState = applyGhostCorruption(
+            ghostAttackActive,
+            attackingGhostId,
+          );
+
           set({
             ghostAttackActive,
             attackingGhostId,
-          }),
+            nodes: corruptionState.nodes,
+            connections: corruptionState.connections,
+            corruptionLevel: corruptionState.corruptionLevel,
+            corruptedNodeIds: corruptionState.corruptedNodeIds,
+            corruptedConnectionIds: corruptionState.corruptedConnectionIds,
+          });
+        },
 
         setSceneReady:
           (

@@ -6,7 +6,9 @@ import { useRef } from "react";
 
 import { dampVector3 } from "@/lib/lerp";
 import { CAMERA } from "@/constants/camera";
-import { ANIMATION } from "@/constants/animation";
+import { getCameraMotionPreset } from "@/components/animations/CameraAnimation";
+import { useAnimationStore } from "@/stores/animation.store";
+import { useCameraStore } from "@/stores/camera.store";
 
 interface CameraControllerProps {
   scrollProgress: number;
@@ -19,6 +21,34 @@ export function CameraController({
 }: CameraControllerProps) {
   const { camera } =
     useThree();
+
+  const activeShot = useCameraStore(
+    (state) => state.activeShot,
+  );
+
+  const cameraMode = useCameraStore(
+    (state) => state.mode,
+  );
+
+  const cameraLocked = useCameraStore(
+    (state) => state.cameraLocked,
+  );
+
+  const enableMouseParallax = useCameraStore(
+    (state) => state.enableMouseParallax,
+  );
+
+  const effects = useCameraStore(
+    (state) => state.effects,
+  );
+
+  const introProgress = useAnimationStore(
+    (state) => state.introProgress,
+  );
+
+  const globalTime = useAnimationStore(
+    (state) => state.globalTime,
+  );
 
   const targetPos =
     useRef(
@@ -53,142 +83,136 @@ export function CameraController({
   const tempVector =
     useRef(new THREE.Vector3());
 
+  const shakeVector =
+    useRef(new THREE.Vector3());
+
   useFrame(
     (state, delta) => {
-      const t =
-        state.clock.elapsedTime;
+      const t = state.clock.elapsedTime;
+      const motion = getCameraMotionPreset(
+        cameraMode,
+        Boolean(activeShot),
+      );
+      const mouseX =
+        enableMouseParallax
+          ? state.pointer.x
+          : 0;
+      const mouseY =
+        enableMouseParallax
+          ? state.pointer.y
+          : 0;
 
-      const scrollX =
-        THREE.MathUtils.lerp(
-          -2.4,
-          2.8,
-          scrollProgress,
-        );
-      const scrollY =
-        THREE.MathUtils.lerp(
-          2.6,
-          0.5,
-          scrollProgress,
-        );
-      const scrollZ =
-        THREE.MathUtils.lerp(
-          18,
-          8.5,
-          scrollProgress,
-        );
-      const targetY =
-        THREE.MathUtils.lerp(
-          0.8,
-          -0.3,
-          scrollProgress,
-        );
-      const ghostBias =
-        THREE.MathUtils.smoothstep(
-          scrollProgress,
-          0.56,
-          0.94,
-        );
+      const breathing =
+        Math.sin(globalTime * motion.breathSpeed) * motion.breathAmplitude;
+      const scrollOffset = THREE.MathUtils.clamp(
+        scrollProgress,
+        0,
+        1,
+      );
 
-      if (
-        enableIdleOrbit
-      ) {
+      if (activeShot) {
         targetPos.current.set(
-          scrollX,
-          scrollY,
-          scrollZ,
+          activeShot.position[0],
+          activeShot.position[1],
+          activeShot.position[2],
         );
 
-        targetPos.current.x +=
-          Math.sin(
-            t *
-              ANIMATION
-                .camera
-                .idleFrequency,
-          ) *
-          ANIMATION
-            .camera
-            .idleAmplitude *
-          5.5;
+        targetLook.current.set(
+          activeShot.target[0],
+          activeShot.target[1],
+          activeShot.target[2],
+        );
 
-        targetPos.current.y +=
-          Math.cos(
-            t *
-              ANIMATION
-                .camera
-                .idleFrequency *
-              0.7,
-          ) *
-          ANIMATION
-            .camera
-            .idleAmplitude *
-          2.4;
+        tempVector.current.set(
+          mouseX * motion.mousePositionX * 0.32,
+          mouseY * motion.mousePositionY * 0.32,
+          0,
+        );
+
+        targetPos.current.add(tempVector.current);
+        targetLook.current.add(
+          tempVector.current.multiplyScalar(motion.mouseLookX * 0.22),
+        );
       } else {
+        const eyeLevel =
+          cameraLocked ? motion.eyeLevel - 0.04 : motion.eyeLevel;
+
+        const baseZ = THREE.MathUtils.lerp(
+          motion.baseZ + 2.4,
+          motion.baseZ,
+          THREE.MathUtils.clamp(introProgress, 0, 1),
+        ) - scrollOffset * 0.65;
+
         targetPos.current.set(
-          scrollX,
-          scrollY,
-          scrollZ,
+          mouseX * motion.mousePositionX,
+          eyeLevel + mouseY * motion.mousePositionY + breathing,
+          baseZ + Math.abs(mouseX) * 0.35,
         );
+
+        targetLook.current.set(
+          mouseX * motion.mouseLookX,
+          eyeLevel - 0.08 + mouseY * motion.mouseLookY,
+          motion.lookZ - scrollOffset * 46,
+        );
+
+        if (enableIdleOrbit) {
+          targetPos.current.x +=
+            Math.sin(t * motion.idleOrbitSpeedX) * motion.idleOrbitX;
+          targetPos.current.y +=
+            Math.cos(t * motion.idleOrbitSpeedY) * motion.idleOrbitY;
+        }
       }
 
-      targetLook.current.set(
-        THREE.MathUtils.lerp(
-          0,
-          1.3,
-          scrollProgress,
-        ),
-        targetY,
-        THREE.MathUtils.lerp(
-          1.4,
-          2.8,
-          scrollProgress,
-        ),
-      );
-
-      tempVector.current.set(
-        state.pointer.x * 0.55,
-        state.pointer.y * 0.35,
-        0,
-      );
-
-      targetPos.current.add(
-        tempVector.current,
-      );
-      targetLook.current.add(
-        tempVector.current
-          .clone()
-          .multiplyScalar(0.22),
-      );
+      if (effects.ghostHijack) {
+        targetPos.current.y +=
+          Math.sin(t * 3.1) * motion.shakeY;
+        targetLook.current.y +=
+          Math.cos(t * 3.1) * motion.shakeY * 4;
+      }
 
       dampVector3(
         camera.position,
         targetPos.current,
-        3,
+        activeShot?.damping ?? motion.positionDamping,
         delta,
       );
 
       dampVector3(
         currentLook.current,
         targetLook.current,
-        4,
+        activeShot?.damping ?? motion.lookDamping,
         delta,
       );
 
+      shakeVector.current.set(
+        0,
+        0,
+        0,
+      );
+
+      if (effects.ghostHijack) {
+        shakeVector.current.x =
+          Math.sin(t * 4.8) * motion.shakeX;
+        shakeVector.current.y =
+          Math.cos(t * 3.1) * motion.shakeY;
+      }
+
       camera.rotation.z =
-        Math.sin(
-          t * 0.18,
-        ) *
-          0.0035 +
-        ghostBias * 0.018;
+        mouseX * -motion.roll +
+        Math.sin(t * 0.2) * 0.0025 +
+        (effects.ghostHijack ? 0.02 : 0) +
+        shakeVector.current.x;
 
       currentFov.current =
         THREE.MathUtils.lerp(
           currentFov.current,
-          THREE.MathUtils.lerp(
-            42,
-            50,
-            ghostBias,
-          ),
-          1 - Math.exp(-2 * delta),
+          activeShot?.fov ??
+            THREE.MathUtils.lerp(
+              44,
+              48,
+              THREE.MathUtils.clamp(introProgress, 0, 1),
+            ),
+            1 - Math.exp(-motion.fovDamping * delta),
         );
 
       if (

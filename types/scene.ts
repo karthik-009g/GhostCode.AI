@@ -66,6 +66,12 @@ export interface SceneState {
   scrollProgress: number;
 
   activeSection: number;
+
+  corruptionLevel: number;
+
+  corruptedNodeIds: string[];
+
+  corruptedConnectionIds: string[];
 }
 
 export interface SceneContextValue extends SceneState {

@@ -33,6 +33,7 @@ interface NodeSpec {
   id: string;
   label: string;
   kind: ArchitectureKind;
+  status: "healthy" | "orphaned" | "broken" | "ghost";
   position: [number, number, number];
   size: [number, number, number];
   accent: string;
@@ -43,6 +44,7 @@ interface ConnectionSpec {
   id: string;
   from: string;
   to: string;
+  status: "active" | "broken" | "ghost" | "dormant";
   color: string;
   packetOffset: number;
 }
@@ -52,6 +54,7 @@ const NODES: NodeSpec[] = ARCHITECTURE_GRAPH.nodes.map(
     id: node.id,
     label: node.label,
     kind: node.kind,
+    status: node.status,
     position: node.position,
     size: node.size,
     accent: node.accent,
@@ -65,6 +68,7 @@ const CONNECTIONS: ConnectionSpec[] =
       id: connection.id,
       from: connection.from,
       to: connection.to,
+      status: connection.status,
       color: connection.color,
       packetOffset: connection.packetOffset,
     }),
@@ -136,6 +140,9 @@ function ArchitectureNode({
       (state) =>
         state.hoveredNodeId,
     );
+  const corruptionLevel = useSceneStore(
+    (state) => state.corruptionLevel,
+  );
   const selectedNodeId =
     useSceneStore(
       (state) =>
@@ -153,9 +160,11 @@ function ArchitectureNode({
     );
 
   const isGhost =
-    node.kind === "ghost";
+    node.kind === "ghost" || node.status === "ghost";
   const isCore =
     node.kind === "core";
+  const isBroken = node.status === "broken";
+  const isOrphaned = node.status === "orphaned";
   const isHovered =
     hoveredNodeId === node.id;
   const isSelected =
@@ -237,17 +246,33 @@ function ArchitectureNode({
     ghostFlicker *
     (1 + hoverBoost * 0.9);
 
+  const statusBoost = isBroken
+    ? 0.65
+    : isOrphaned
+    ? 0.3
+    : isGhost
+    ? 1.1
+    : 0;
+
+  const nodeColor = isBroken
+    ? COLORS.ghost.core
+    : isOrphaned
+    ? COLORS.cyan.dim
+    : node.accent;
+
   const ringOpacity =
     0.08 +
     reveal * 0.14 +
     pulse * 0.06 +
-    hoverBoost * 0.12;
+    hoverBoost * 0.12 +
+    statusBoost * 0.08;
 
   const lightIntensity =
     reveal *
     ghostFlicker *
     (isCore ? 3.4 : 1.8) *
-    (1 + hoverBoost);
+    (1 + hoverBoost) *
+    (1 + statusBoost * 0.42);
 
   return (
     <group
@@ -306,7 +331,7 @@ function ArchitectureNode({
           ]}
         />
         <meshBasicMaterial
-          color={node.glow}
+          color={nodeColor}
           transparent
           opacity={ringOpacity}
           depthWrite={false}
@@ -320,11 +345,13 @@ function ArchitectureNode({
       >
         <meshPhysicalMaterial
           color={
-            isGhost
+            isBroken
+              ? "#2d0d15"
+              : isGhost
               ? "#1a0911"
               : "#0b1622"
           }
-          emissive={node.accent}
+          emissive={nodeColor}
           roughness={0.16}
           metalness={0.08}
           transmission={0.96}
@@ -350,14 +377,14 @@ function ArchitectureNode({
           ]}
         />
         <meshBasicMaterial
-          color={node.accent}
+          color={nodeColor}
           transparent
-          opacity={0.85}
+          opacity={0.85 + corruptionLevel * 0.08}
         />
       </mesh>
 
       <pointLight
-        color={node.glow}
+        color={nodeColor}
         distance={
           isCore ? 10 : 7
         }
@@ -504,8 +531,7 @@ function ConnectionBeam({
     );
 
   const reveal =
-    connection.color ===
-    COLORS.ghost.core
+    connection.status === "ghost"
       ? getReveal(
           scrollProgress,
           0.52,
@@ -517,6 +543,18 @@ function ConnectionBeam({
           0.5,
         );
 
+  const isCorrupted =
+    connection.status !== "active";
+  const beamColor =
+    connection.status === "ghost"
+      ? COLORS.ghost.core
+      : connection.status === "broken"
+      ? COLORS.ghost.rim
+      : connection.color;
+
+  const beamOpacity =
+    0.18 + reveal * 0.5 + corruptionLevel * 0.18;
+
   const packetT =
     (globalTime * 0.18 +
       connection.packetOffset) %
@@ -524,14 +562,14 @@ function ConnectionBeam({
 
   curve.getPointAt(packetT, point);
 
-  const beamOpacity = 0.2 + reveal * 0.6;
-  const glowOpacity = 0.06 + reveal * 0.16;
+  const glowOpacity =
+    0.06 + reveal * 0.16 + (isCorrupted ? 0.06 : 0);
 
   return (
     <group>
       <mesh geometry={glowGeometry}>
         <meshBasicMaterial
-          color={connection.color}
+          color={beamColor}
           transparent
           opacity={glowOpacity}
           depthWrite={false}
@@ -540,7 +578,7 @@ function ConnectionBeam({
 
       <mesh geometry={beamGeometry}>
         <meshBasicMaterial
-          color={connection.color}
+          color={beamColor}
           transparent
           opacity={beamOpacity}
           depthWrite={false}
@@ -551,9 +589,7 @@ function ConnectionBeam({
         <sphereGeometry
           args={[0.09, 16, 16]}
         />
-        <meshBasicMaterial
-          color={connection.color}
-        />
+        <meshBasicMaterial color={beamColor} />
       </mesh>
     </group>
   );

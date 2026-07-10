@@ -45,6 +45,18 @@ export function SceneProvider({
     (state) => state.revealProgress,
   );
 
+  const corruptionLevel = useSceneStore(
+    (state) => state.corruptionLevel,
+  );
+
+  const corruptedNodeIds = useSceneStore(
+    (state) => state.corruptedNodeIds,
+  );
+
+  const corruptedConnectionIds = useSceneStore(
+    (state) => state.corruptedConnectionIds,
+  );
+
   const activeSection = 0;
 
   const setHoveredNode = useSceneStore(
@@ -84,6 +96,12 @@ export function SceneProvider({
 
         activeSection,
 
+        corruptionLevel,
+
+        corruptedNodeIds,
+
+        corruptedConnectionIds,
+
         setHoveredNode,
 
         setSelectedNode,
@@ -102,6 +120,9 @@ export function SceneProvider({
         introComplete,
         scrollProgress,
         activeSection,
+        corruptionLevel,
+        corruptedNodeIds,
+        corruptedConnectionIds,
         setHoveredNode,
         setSelectedNode,
       ],

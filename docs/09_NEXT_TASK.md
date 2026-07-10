@@ -12,22 +12,23 @@
 - Removed GhostWorld's duplicate graph tables in favor of the canonical source.
 - Added a centralized `WorldAnimationController` for scene time ownership.
 - Removed the GhostWorld root, connection, and atmosphere frame loops.
+- Added a corruption propagation model for ghost attacks and connection cascades.
+- Wired intro sequencing and ghost-hijack orchestration through the cinematic director.
+- Made bloom, noise, vignette, DOF, particles, lighting, and fog respond to intro and corruption state.
+- Built the modular megacity composition with district wrappers, skyline layering, bridges, and street-level camera framing.
+- Replaced the page's inline city helpers with composition-only scene assembly.
+- Upgraded road, traffic, signage, and rooftop details into dedicated modular subsystems.
 
 ## Next Task
-- Implement the ghost corruption state model and propagation rules.
-- Add corruption-aware particles, materials, and connection behavior.
-- Introduce cinematic intro sequencing and camera hijack orchestration.
-- Upgrade postprocessing and selective bloom to match the reference more closely.
+- Optional visual polish pass only.
 
 ## Future Task
-- Expand district-specific megacity generation and horizon layering.
-- Add traffic, signage, and rooftop detail subsystems.
+- Add deeper postprocessing passes such as chromatic aberration and selective distortion if performance allows.
+- Extend camera state machine with explicit attack, transition, and emergency modes.
 
 ## Blocked Task
 - Direct frame-level analysis of the reference video.
 
 ## Recommended Order
-1. Ghost system state model.
-2. Corruption-aware materials, beams, particles, and effects.
-3. Cinematic intro sequencing and camera hijack orchestration.
-4. Megacity district and skyline expansion.
+1. Optional postprocessing refinements if budget allows.
+2. Camera state machine expansion for attack and transition modes.

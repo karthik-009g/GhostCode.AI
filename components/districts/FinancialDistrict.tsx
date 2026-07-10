@@ -2,14 +2,14 @@
 
 import { CityDistrict } from "@/components/infrastructure/CityDistrict";
 
-export function GhostDistrict() {
+export function FinancialDistrict() {
   return (
     <CityDistrict
-      theme="ghost"
-      origin={[56, 0, -220]}
-      seed={607}
+      theme="financial"
+      origin={[18, 0, -120]}
+      seed={203}
       width={30}
-      depth={78}
+      depth={70}
     />
   );
 }

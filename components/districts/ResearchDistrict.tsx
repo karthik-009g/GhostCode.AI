@@ -2,14 +2,14 @@
 
 import { CityDistrict } from "@/components/infrastructure/CityDistrict";
 
-export function CoreDistrict() {
+export function ResearchDistrict() {
   return (
     <CityDistrict
-      theme="core"
-      origin={[0, 0, -38]}
-      seed={101}
+      theme="research"
+      origin={[-18, 0, -160]}
+      seed={307}
       width={28}
-      depth={64}
+      depth={66}
     />
   );
 }

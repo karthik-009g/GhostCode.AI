@@ -6,6 +6,8 @@ import * as THREE from "three";
 
 import { SCENE } from "@/constants/scene";
 import { COLORS } from "@/constants/colors";
+import { useAnimationStore } from "@/stores/animation.store";
+import { useSceneStore } from "@/stores/scene.store";
 
 interface ParticleFieldProps {
   density?: number;
@@ -15,6 +17,18 @@ export function ParticleField({
   density = 1,
 }: ParticleFieldProps) {
   const meshRef = useRef<THREE.Points>(null);
+
+  const introProgress = useAnimationStore(
+    (state) => state.introProgress,
+  );
+
+  const corruptionLevel = useSceneStore(
+    (state) => state.corruptionLevel,
+  );
+
+  const ghostHijack = useSceneStore(
+    (state) => state.ghostAttackActive,
+  );
 
   const {
     positions,
@@ -77,6 +91,16 @@ export function ParticleField({
           value:
             SCENE
               .particles.size *
+
+      const cyanColor = useMemo(
+        () => new THREE.Color(COLORS.cyan.core),
+        [],
+      );
+
+      const redColor = useMemo(
+        () => new THREE.Color(COLORS.ghost.core),
+        [],
+      );
             300,
         },
         uOpacity: {
@@ -92,6 +116,30 @@ export function ParticleField({
 
     const material =
       meshRef.current
+
+        if (material.uniforms?.uColor) {
+          const intensity =
+            THREE.MathUtils.clamp(
+              corruptionLevel * 0.8 + introProgress * 0.25,
+              0,
+              1,
+            );
+
+          material.uniforms.uColor.value
+            .copy(cyanColor)
+            .lerp(
+              redColor,
+              ghostHijack ? intensity : intensity * 0.55,
+            );
+        }
+
+        if (material.uniforms?.uOpacity) {
+          material.uniforms.uOpacity.value =
+            0.42 +
+            corruptionLevel * 0.22 +
+            (ghostHijack ? 0.12 : 0) +
+            introProgress * 0.08;
+        }
         .material as THREE.ShaderMaterial;
 
     if (

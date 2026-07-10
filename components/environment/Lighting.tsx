@@ -1,14 +1,41 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { LIGHTING } from "@/constants/lighting";
+import { useAnimationStore } from "@/stores/animation.store";
+import { useSceneStore } from "@/stores/scene.store";
 
 export function Lighting() {
+  const introProgress = useAnimationStore(
+    (state) => state.introProgress,
+  );
+
+  const corruptionLevel = useSceneStore(
+    (state) => state.corruptionLevel,
+  );
+
+  const ambientIntensity = useMemo(
+    () => LIGHTING.ambient.intensity * (0.92 + introProgress * 0.2),
+    [introProgress],
+  );
+
+  const fillIntensity = useMemo(
+    () => LIGHTING.fill.intensity * (1 + corruptionLevel * 0.45),
+    [corruptionLevel],
+  );
+
+  const ghostIntensity = useMemo(
+    () => LIGHTING.ghost.intensity * (1 + corruptionLevel * 1.1),
+    [corruptionLevel],
+  );
+
   return (
     <>
       {/* Global ambient */}
       <ambientLight
         color={LIGHTING.ambient.color}
-        intensity={LIGHTING.ambient.intensity}
+        intensity={ambientIntensity}
       />
 
       {/* Atmospheric sky fill */}
@@ -31,7 +58,7 @@ export function Lighting() {
       {/* Cyan fill */}
       <pointLight
         color={LIGHTING.fill.color}
-        intensity={LIGHTING.fill.intensity}
+        intensity={fillIntensity}
         position={LIGHTING.fill.position}
         distance={20}
         decay={2}
@@ -49,7 +76,7 @@ export function Lighting() {
       {/* Ghost ambient */}
       <pointLight
         color={LIGHTING.ghost.color}
-        intensity={LIGHTING.ghost.intensity}
+        intensity={ghostIntensity}
         position={LIGHTING.ghost.position}
         distance={LIGHTING.ghost.distance}
         decay={LIGHTING.ghost.decay}

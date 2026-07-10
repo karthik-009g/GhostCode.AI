@@ -1,5 +1,6 @@
 "use client";
 
+import { Director } from "@/components/cinematic/Director";
 import { MainCamera } from "./MainCamera";
 import { CameraController } from "./CameraController";
 
@@ -13,6 +14,12 @@ export function CameraRig({
 }: CameraRigProps) {
   return (
     <>
+      <Director
+        scrollProgress={
+          scrollProgress
+        }
+      />
+
       {/* Primary cinematic camera */}
       <MainCamera />
 
