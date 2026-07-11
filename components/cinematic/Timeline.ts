@@ -46,7 +46,7 @@ export function sampleTimeline(
 	}
 
 	if (shots.length === 1) {
-		return shots[0];
+		return shots[0] ?? null;
 	}
 
 	const normalized = clamp01(progress);
@@ -55,6 +55,13 @@ export function sampleTimeline(
 	const rightIndex = Math.min(shots.length - 1, leftIndex + 1);
 	const localT = segment - leftIndex;
 
-	return lerpShot(shots[leftIndex], shots[rightIndex], localT);
+	const left = shots[leftIndex];
+	const right = shots[rightIndex];
+
+	if (!left || !right) {
+		return null;
+	}
+
+	return lerpShot(left, right, localT);
 }
 

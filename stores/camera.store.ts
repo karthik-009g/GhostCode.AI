@@ -24,6 +24,7 @@ export interface CameraKeyframe {
   fov: number;
   duration: number;
   easing: CameraEasing;
+  damping?: number;
 }
 
 interface CameraEffects {

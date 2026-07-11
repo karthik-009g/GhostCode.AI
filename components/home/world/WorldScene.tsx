@@ -9,6 +9,7 @@ import type { MutableRefObject, ReactNode } from "react";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
+import { TowerField as ArchitecturalTowerField } from "../architecture/TowerArchetypes";
 import { CinematicCamera } from "../camera/CinematicCamera";
 import {
   BG,
@@ -23,7 +24,6 @@ import {
   range,
   type SignSpec,
   smoothSegment,
-  type TowerSpec,
 } from "../shared";
 
 function StreetAtmosphere({
@@ -283,6 +283,39 @@ function ForegroundArchitecture({
               metalness={0.12}
             />
           </mesh>
+          <mesh position={[0, -block.height * 0.42, 0]}>
+            <boxGeometry
+              args={[
+                block.width * 1.16,
+                block.height * 0.12,
+                block.depth * 1.12,
+              ]}
+            />
+            <meshStandardMaterial
+              color="#090d13"
+              roughness={0.9}
+              metalness={0.1}
+            />
+          </mesh>
+          <mesh position={[0, block.height * 0.18, 0]}>
+            <boxGeometry
+              args={[
+                block.width * 0.76,
+                block.height * 0.48,
+                block.depth * 0.82,
+              ]}
+            />
+            <meshPhysicalMaterial
+              color={index > 1 ? "#13202b" : "#101c28"}
+              roughness={0.2}
+              metalness={0.08}
+              transmission={0.42}
+              transparent
+              opacity={0.38}
+              emissive={index % 2 === 0 ? NEON : WARM}
+              emissiveIntensity={0.08 + rise * 0.14}
+            />
+          </mesh>
           <mesh
             position={[
               0,
@@ -305,6 +338,49 @@ function ForegroundArchitecture({
               depthWrite={false}
             />
           </mesh>
+          {Array.from({ length: Math.max(4, Math.floor(block.height / 3)) }).map(
+            (_, rowIndex) => {
+              const rowCount = Math.max(4, Math.floor(block.height / 3));
+              const y =
+                -block.height * 0.3 +
+                rowIndex * (block.height * 0.54 / rowCount);
+
+              return (
+                <mesh
+                  key={rowIndex}
+                  position={[0, y, block.depth * 0.515]}
+                >
+                  <boxGeometry
+                    args={[
+                      block.width * (rowIndex % 2 === 0 ? 0.74 : 0.58),
+                      0.08,
+                      0.1,
+                    ]}
+                  />
+                  <meshBasicMaterial
+                    color={index % 2 === 0 ? NEON : WARM}
+                    transparent
+                    opacity={0.08 + rise * 0.18}
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                  />
+                </mesh>
+              );
+            },
+          )}
+          {[-1, 1].map((side) => (
+            <mesh
+              key={side}
+              position={[side * block.width * 0.48, 0, block.depth * 0.48]}
+            >
+              <boxGeometry args={[0.1, block.height * 0.86, 0.14]} />
+              <meshStandardMaterial
+                color="#202833"
+                roughness={0.48}
+                metalness={0.48}
+              />
+            </mesh>
+          ))}
           <mesh position={[0, block.height * 0.34, 0]}>
             <boxGeometry
               args={[block.width * 1.12, 0.2, 2.4]}
@@ -317,6 +393,24 @@ function ForegroundArchitecture({
               emissiveIntensity={0.06 + rise * 0.08}
             />
           </mesh>
+          <group position={[0, block.height * 0.52, 0]}>
+            <mesh>
+              <boxGeometry args={[block.width * 0.46, 0.36, block.depth * 0.42]} />
+              <meshStandardMaterial
+                color="#171e27"
+                roughness={0.46}
+                metalness={0.42}
+              />
+            </mesh>
+            <mesh position={[block.width * 0.18, 0.36, 0]}>
+              <cylinderGeometry args={[0.04, 0.06, 0.9, 8]} />
+              <meshStandardMaterial
+                color="#b8eef7"
+                roughness={0.32}
+                metalness={0.86}
+              />
+            </mesh>
+          </group>
         </group>
       ))}
 
@@ -351,12 +445,13 @@ function DataTraffic({
 }) {
   const specs = useMemo(() => {
     const rng = createRng(42);
+    const trafficLanes = [-5.8, -2.8, 2.8, 5.8] as const;
 
     return Array.from(
       { length: 42 },
       (_, index) => ({
         lane:
-          [-5.8, -2.8, 2.8, 5.8][index % 4] +
+          (trafficLanes[index % trafficLanes.length] ?? 0) +
           range(rng, -0.18, 0.18),
         zOffset: range(rng, 0, 190),
         speed: range(rng, 7, 13),
@@ -507,298 +602,6 @@ function DataTraffic({
         />
       </instancedMesh>
     </>
-  );
-}
-
-function Tower({
-  spec,
-  progress,
-}: {
-  spec: TowerSpec;
-  progress: number;
-}) {
-  const neonRise = smoothSegment(
-    progress,
-    0.08,
-    0.5,
-  );
-  const ghostRise =
-    spec.flavor === "ghost"
-      ? smoothSegment(progress, 0.66, 1)
-      : 0;
-  const tint =
-    spec.flavor === "ghost"
-      ? GHOST
-      : spec.flavor === "residential"
-        ? WARM
-        : spec.flavor === "market"
-          ? NEON_SOFT
-          : NEON;
-
-  return (
-    <group
-      position={[spec.x, spec.height * 0.5, spec.z]}
-      rotation={[0, spec.side * -0.08, 0]}
-    >
-      <mesh position={[0, -0.22, 0]}>
-        <boxGeometry
-          args={[
-            spec.width * 1.08,
-            0.44,
-            spec.depth * 1.06,
-          ]}
-        />
-        <meshStandardMaterial
-          color="#090c12"
-          roughness={0.95}
-          metalness={0.04}
-        />
-      </mesh>
-
-      <mesh>
-        <boxGeometry
-          args={[spec.width, spec.height, spec.depth]}
-        />
-        <meshStandardMaterial
-          color={
-            spec.flavor === "ghost"
-              ? "#170a11"
-              : "#0d1118"
-          }
-          roughness={0.76}
-          metalness={0.2}
-          emissive={tint}
-          emissiveIntensity={
-            0.08 +
-            neonRise * 0.1 +
-            ghostRise * 0.16
-          }
-        />
-      </mesh>
-
-      <mesh position={[0, spec.height * 0.16, 0]}>
-        <boxGeometry
-          args={[
-            spec.width * 0.86,
-            spec.height * 0.42,
-            spec.depth * 0.86,
-          ]}
-        />
-        <meshPhysicalMaterial
-          color={
-            spec.flavor === "ghost"
-              ? "#22101b"
-              : "#102130"
-          }
-          roughness={0.18}
-          metalness={0.06}
-          transmission={0.52}
-          transparent
-          opacity={0.62}
-          emissive={tint}
-          emissiveIntensity={
-            0.12 +
-            neonRise * 0.22 +
-            ghostRise * 0.28
-          }
-        />
-      </mesh>
-
-      <mesh
-        position={[
-          0,
-          spec.height * 0.5 + spec.crown * 0.5,
-          0,
-        ]}
-      >
-        <boxGeometry
-          args={[
-            spec.width * 0.56,
-            spec.crown,
-            spec.depth * 0.56,
-          ]}
-        />
-        <meshStandardMaterial
-          color="#151922"
-          roughness={0.46}
-          metalness={0.34}
-          emissive={tint}
-          emissiveIntensity={
-            0.16 + neonRise * 0.18
-          }
-        />
-      </mesh>
-
-      <mesh
-        position={[
-          0,
-          spec.height * 0.5 + spec.crown + 0.7,
-          0,
-        ]}
-      >
-        <cylinderGeometry args={[0.05, 0.05, 1.4, 8]} />
-        <meshStandardMaterial
-          color="#c8edf4"
-          roughness={0.28}
-          metalness={0.88}
-        />
-      </mesh>
-
-      {[-1, 1].map((side) => (
-        <mesh
-          key={side}
-          position={[
-            side * spec.width * 0.47,
-            spec.height * 0.04,
-            0,
-          ]}
-        >
-          <boxGeometry
-            args={[0.08, spec.height * 0.94, spec.depth * 0.92]}
-          />
-          <meshBasicMaterial
-            color={tint}
-            transparent
-            opacity={
-              0.22 +
-              neonRise * 0.16 +
-              ghostRise * 0.16
-            }
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      ))}
-
-      {Array.from({
-        length: Math.max(
-          6,
-          Math.floor(spec.height / 3),
-        ),
-      }).map((_, index) => {
-        const rowCount = Math.max(
-          6,
-          Math.floor(spec.height / 3),
-        );
-        const y =
-          -spec.height * 0.42 +
-          index * (spec.height / rowCount);
-
-        return (
-          <group key={index}>
-            <mesh position={[0, y, spec.depth * 0.505]}>
-              <boxGeometry
-                args={[spec.width * 0.72, 0.12, 0.08]}
-              />
-              <meshBasicMaterial
-                color={tint}
-                transparent
-                opacity={
-                  0.1 +
-                  neonRise * 0.22 +
-                  ((index + spec.side + 8) % 3 === 0
-                    ? 0.12
-                    : 0)
-                }
-                blending={THREE.AdditiveBlending}
-                depthWrite={false}
-              />
-            </mesh>
-            <mesh position={[0, y, -spec.depth * 0.505]}>
-              <boxGeometry
-                args={[spec.width * 0.68, 0.1, 0.08]}
-              />
-              <meshBasicMaterial
-                color={tint}
-                transparent
-                opacity={0.08 + neonRise * 0.18}
-                blending={THREE.AdditiveBlending}
-                depthWrite={false}
-              />
-            </mesh>
-          </group>
-        );
-      })}
-
-      {spec.bridge ? (
-        <mesh
-          position={[spec.side * -1.8, spec.height * 0.14, 0]}
-        >
-          <boxGeometry
-            args={[3.4, 0.2, spec.depth * 0.28]}
-          />
-          <meshBasicMaterial
-            color={NEON_SOFT}
-            transparent
-            opacity={0.12 + neonRise * 0.12}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      ) : null}
-    </group>
-  );
-}
-
-function TowerField({
-  progress,
-}: {
-  progress: number;
-}) {
-  const towers = useMemo<TowerSpec[]>(() => {
-    const rng = createRng(2026);
-    const specs: TowerSpec[] = [];
-
-    for (let row = 0; row < 16; row += 1) {
-      const z = -12 - row * 10.5;
-      const flavor: TowerSpec["flavor"] =
-        row > 11
-          ? "ghost"
-          : row > 8
-            ? "core"
-            : row > 4
-              ? "market"
-              : "residential";
-
-      ([-1, 1] as const).forEach((side, column) => {
-        specs.push({
-          x:
-            side *
-              range(
-                rng,
-                10.5,
-                row > 10 ? 18.5 : 15.5,
-              ) +
-            column * 1.2,
-          z,
-          width: range(rng, 2.2, 5.2),
-          depth: range(rng, 2.2, 5.6),
-          height: range(
-            rng,
-            row < 3 ? 18 : 12,
-            row > 8 ? 34 : 28,
-          ),
-          crown: range(rng, 1.4, 4.8),
-          side,
-          flavor,
-          bridge: rng() > 0.72,
-        });
-      });
-    }
-
-    return specs;
-  }, []);
-
-  return (
-    <group>
-      {towers.map((tower, index) => (
-        <Tower
-          key={index}
-          spec={tower}
-          progress={progress}
-        />
-      ))}
-    </group>
   );
 }
 
@@ -1112,12 +915,12 @@ function HologramFields({
 
   return (
     <group>
-      {[
+      {([
         [-7.8, -24],
         [8.4, -48],
         [-9.2, -74],
         [8.8, -104],
-      ].map(([x, z], index) => (
+      ] satisfies Array<[number, number]>).map(([x, z], index) => (
         <group
           key={index}
           position={[x, 2.2, z]}
@@ -1346,8 +1149,15 @@ function AtmosphereParticles({
       return;
     }
 
-    material.uniforms.uTime.value = clock.elapsedTime;
-    material.uniforms.uGhostMix.value = smoothSegment(
+    const timeUniform = material.uniforms.uTime;
+    const ghostMixUniform = material.uniforms.uGhostMix;
+
+    if (!timeUniform || !ghostMixUniform) {
+      return;
+    }
+
+    timeUniform.value = clock.elapsedTime;
+    ghostMixUniform.value = smoothSegment(
       progress,
       0.68,
       1,
@@ -1516,7 +1326,7 @@ export function WorldScene({
         <StreetBase progress={progress} />
         <ForegroundArchitecture progress={progress} />
         <DistantMegacity progress={progress} />
-        <TowerField progress={progress} />
+        <ArchitecturalTowerField progress={progress} />
         <ElevatedTransit progress={progress} />
         <ReactiveSigns progress={progress} hoverRef={hoverRef} />
         <HologramFields progress={progress} hoverRef={hoverRef} />

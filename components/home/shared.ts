@@ -103,8 +103,11 @@ export function sampleTrack(
   progress: number,
   key: "position" | "target",
 ) {
-  if (progress <= track[0].at) {
-    return track[0][key].clone();
+  const first = track[0]!;
+  const last = track[track.length - 1]!;
+
+  if (progress <= first.at) {
+    return first[key].clone();
   }
 
   for (let index = 0; index < track.length - 1; index += 1) {
@@ -121,7 +124,7 @@ export function sampleTrack(
     }
   }
 
-  return track[track.length - 1][key].clone();
+  return last[key].clone();
 }
 
 export function createRng(seed: number) {

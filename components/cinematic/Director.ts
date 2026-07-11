@@ -68,7 +68,14 @@ export function Director({ scrollProgress }: DirectorProps) {
 		setCameraLocked(stage !== "complete");
 
 		const shot = getCameraShotForProgress(scrollProgress);
-		setActiveShot(shot);
+		setActiveShot(
+			shot
+				? {
+						...shot,
+						easing: "easeInOut",
+					}
+				: null,
+		);
 
 		const ghostHijack = stage === "ghosts-activate";
 		setGhostHijack(ghostHijack);

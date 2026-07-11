@@ -448,6 +448,9 @@ function ConnectionBeam({
   const globalTime = useAnimationStore(
     (state) => state.globalTime,
   );
+  const corruptionLevel = useSceneStore(
+    (state) => state.corruptionLevel,
+  );
   const point =
     useMemo(
       () => new THREE.Vector3(),

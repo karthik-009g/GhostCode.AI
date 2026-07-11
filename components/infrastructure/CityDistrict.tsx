@@ -39,6 +39,7 @@ type BuildingSpec = {
   billboard: boolean;
   antenna: boolean;
   roofBeacon: boolean;
+  baseHeight: number;
   shellOpacity: number;
   windowDensity: number;
   darkFloorChance: number;
@@ -257,7 +258,6 @@ function generateBuildings(
   const streetGap = preset.streetGap;
   const rowCount = Math.max(2, Math.round(Math.sqrt(preset.buildings)));
   const columnCount = Math.max(2, Math.ceil(preset.buildings / rowCount));
-  const columnStep = width / columnCount;
   const rowStep = depth / rowCount;
 
   for (let row = 0; row < rowCount; row += 1) {
@@ -313,6 +313,7 @@ function generateBuildings(
         billboard: rng() < preset.billboardChance,
         antenna: rng() < preset.antennaChance,
         roofBeacon: rng() < preset.roofBeaconChance,
+        baseHeight: preset.baseHeight,
         shellOpacity: preset.shellOpacity,
         windowDensity: preset.windowDensity,
         darkFloorChance: preset.darkFloorChance,
@@ -368,13 +369,6 @@ function BuildingTower({
   const lightRef = useRef<THREE.PointLight>(null);
   const rowMaterialsRef = useRef<THREE.MeshBasicMaterial[]>([]);
 
-  const bodyTint =
-    spec.style === "residential"
-      ? "#151a22"
-      : spec.style === "industrial"
-      ? "#0d1114"
-      : spec.palette.body;
-
   const roofGlow =
     spec.style === "ghost"
       ? spec.palette.glow
@@ -421,8 +415,9 @@ function BuildingTower({
       const row = rows[rowIndex];
       if (!row) return;
       const rowPulse =
-        row.active &&
-        (0.55 + Math.sin(t * 0.8 + row.seedPhase) * 0.45);
+        row.active
+          ? 0.55 + Math.sin(t * 0.8 + row.seedPhase) * 0.45
+          : 0;
       material.opacity = row.active
         ? (row.brightness * rowPulse) * (rowIndex % 2 === 0 ? 0.85 : 0.75)
         : 0.03;
@@ -546,16 +541,16 @@ function BuildingTower({
         />
       </mesh>
 
-      {[
+      {([
         [-width * 0.47, 0],
         [width * 0.47, 0],
-      ].map(([x, z], edgeIndex) => (
+      ] satisfies Array<[number, number]>).map(([x, z], edgeIndex) => (
         <mesh key={edgeIndex} position={[x, 0, z]}>
           <boxGeometry args={[0.08, height, depth * 0.94]} />
           <meshBasicMaterial
             color={spec.palette.glow}
             transparent
-            opacity={0.2 + pulse * 0.08}
+            opacity={0.22}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
           />
@@ -564,8 +559,7 @@ function BuildingTower({
 
       {rows.map((row, rowIndex) => {
         const rowPulse =
-          row.active &&
-          (0.55 + Math.sin(time * 0.8 + row.seedPhase) * 0.45);
+          row.active ? 0.55 + Math.sin(row.seedPhase) * 0.45 : 0;
         const opacity = row.active
           ? row.brightness * rowPulse
           : 0.03;
@@ -639,7 +633,7 @@ function BuildingTower({
       <pointLight
         ref={lightRef}
         color={roofGlow}
-        intensity={spec.roofBeacon ? 1.7 + pulse * 0.7 : 0.5}
+        intensity={spec.roofBeacon ? 1.7 : 0.5}
         distance={height * 1.2}
         decay={2}
         position={[0, height * 0.43, 0]}

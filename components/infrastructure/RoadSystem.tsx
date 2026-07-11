@@ -76,12 +76,12 @@ function useRoadLayout() {
   return useMemo(() => {
     const rng = createRng(0x5a17);
 
-    const trafficLanes = [-5.8, -3.0, 3.0, 5.8];
+    const trafficLanes = [-5.8, -3.0, 3.0, 5.8] as const;
     const traffic: RoadTrafficInstance[] = [];
 
     for (let i = 0; i < 56; i += 1) {
       const laneIndex = i % trafficLanes.length;
-      const laneX = trafficLanes[laneIndex] + range(rng, -0.12, 0.12);
+      const laneX = (trafficLanes[laneIndex] ?? 0) + range(rng, -0.12, 0.12);
       const direction: 1 | -1 = i % 3 === 0 ? 1 : -1;
 
       traffic.push({
