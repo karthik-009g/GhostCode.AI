@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
 } from "react";
@@ -75,9 +76,7 @@ export function SceneProvider({
     (state) => state.setRevealProgress,
   );
 
-  const setActiveSection = () => {
-    return;
-  };
+  const setActiveSection = useCallback(() => {}, []);
 
   const value =
     useMemo(
@@ -125,6 +124,9 @@ export function SceneProvider({
         corruptedConnectionIds,
         setHoveredNode,
         setSelectedNode,
+        setIntroComplete,
+        setScrollProgress,
+        setActiveSection,
       ],
     );
 

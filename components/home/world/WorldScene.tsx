@@ -11,6 +11,9 @@ import * as THREE from "three";
 
 import { TowerField as ArchitecturalTowerField } from "../architecture/TowerArchetypes";
 import { CinematicCamera } from "../camera/CinematicCamera";
+import { RepositoryWorld } from "../repository/RepositoryWorld";
+import { SkySystem } from "../environment/SkySystem";
+import type { CinematicValues } from "../timeline/CinematicTimeline";
 import {
   BG,
   GHOST,
@@ -45,11 +48,14 @@ function StreetAtmosphere({
     0.014 +
     cyanRise * 0.004 +
     ghostRise * 0.007;
+  const fogColor = new THREE.Color(BG)
+    .lerp(new THREE.Color("#07141a"), cyanRise * 0.28)
+    .lerp(new THREE.Color("#130a12"), ghostRise * 0.24);
 
   return (
     <>
-      <color attach="background" args={[BG]} />
-      <fogExp2 attach="fog" args={[BG, density]} />
+      <color attach="background" args={[fogColor]} />
+      <fogExp2 attach="fog" args={[fogColor, density]} />
       <ambientLight color="#0c1119" intensity={0.9} />
       <directionalLight
         color={NEON_SOFT}
@@ -90,17 +96,37 @@ function StreetBase({
     0.16 +
     smoothSegment(progress, 0.12, 0.62) * 0.12;
   const wetness = smoothSegment(progress, 0.2, 0.8);
+  const serviceZones = [
+    { z: 30, length: 17, side: -1 },
+    { z: 18, length: 12, side: 1 },
+    { z: 1, length: 20, side: 1 },
+    { z: -16, length: 15, side: -1 },
+    { z: -36, length: 22, side: -1 },
+    { z: -57, length: 13, side: 1 },
+    { z: -78, length: 18, side: -1 },
+    { z: -101, length: 24, side: 1 },
+  ];
+  const intersections = [-5, -43, -86] as const;
 
   return (
     <group position={[0, -0.05, -52]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[34, 190]} />
         <meshPhysicalMaterial
-          color="#070b10"
-          roughness={0.32 - wetness * 0.12}
+          color="#03070a"
+          roughness={0.24 - wetness * 0.08}
           metalness={0.18}
-          clearcoat={0.85}
-          clearcoatRoughness={0.14}
+          clearcoat={0.95}
+          clearcoatRoughness={0.1}
+        />
+      </mesh>
+
+      <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[9.4, 190]} />
+        <meshStandardMaterial
+          color="#05080b"
+          roughness={0.42}
+          metalness={0.22}
         />
       </mesh>
 
@@ -128,6 +154,166 @@ function StreetBase({
         />
       </mesh>
 
+      {serviceZones.map((zone, index) => (
+        <group key={index} position={[zone.side * 8.2, 0, zone.z]}>
+          <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[3.25, zone.length]} />
+            <meshStandardMaterial
+              color={index % 3 === 0 ? "#10161d" : "#0b1016"}
+              roughness={0.76}
+              metalness={0.12}
+            />
+          </mesh>
+          <mesh position={[-zone.side * 1.45, 0.15, 0]}>
+            <boxGeometry args={[0.18, 0.22, zone.length]} />
+            <meshStandardMaterial
+              color="#27303a"
+              roughness={0.68}
+              metalness={0.2}
+            />
+          </mesh>
+          <mesh position={[zone.side * 1.45, 0.1, 0]}>
+            <boxGeometry args={[0.1, 0.12, zone.length * 0.92]} />
+            <meshBasicMaterial
+              color={zone.side < 0 ? NEON_SOFT : WARM}
+              transparent
+              opacity={0.12 + railGlow * 0.16}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {intersections.map((z) => (
+        <group key={z} position={[0, 0, z]}>
+          <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[31, 4.8]} />
+            <meshStandardMaterial
+              color="#11161c"
+              roughness={0.7}
+              metalness={0.14}
+            />
+          </mesh>
+          {[-10.5, -7.8, 7.8, 10.5].map((x) => (
+            <mesh
+              key={x}
+              position={[x, 0.07, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <planeGeometry args={[0.72, 3.5]} />
+              <meshBasicMaterial
+                color="#d9e7ee"
+                transparent
+                opacity={0.12}
+                depthWrite={false}
+              />
+            </mesh>
+          ))}
+          <mesh position={[0, 0.16, 0]}>
+            <boxGeometry args={[2.1, 0.22, 3.8]} />
+            <meshStandardMaterial
+              color="#303840"
+              roughness={0.78}
+              metalness={0.08}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {[-5.15, 5.15].map((x) => (
+        <mesh key={x} position={[x, 0.16, 0]}>
+          <boxGeometry args={[0.24, 0.22, 188]} />
+          <meshStandardMaterial
+            color="#28313a"
+            roughness={0.72}
+            metalness={0.18}
+          />
+        </mesh>
+      ))}
+
+      {Array.from({ length: 19 }).map((_, index) => {
+        const side = index % 2 === 0 ? -1 : 1;
+        const z = 35 - index * 9.4 - (index % 3) * 1.3;
+        const x = side * (11.4 + (index % 4) * 0.68);
+
+        return (
+          <group key={index} position={[x, 0, z]}>
+            <mesh position={[0, 0.42, 0]}>
+              <boxGeometry args={[0.62, 0.84, 0.48]} />
+              <meshStandardMaterial
+                color={index % 5 === 0 ? "#27323a" : "#171e25"}
+                roughness={0.62}
+                metalness={0.42}
+              />
+            </mesh>
+            <mesh position={[-side * 0.52, 0.48, 0.38]}>
+              <boxGeometry args={[0.12, 0.26, 0.06]} />
+              <meshBasicMaterial
+                color={side < 0 ? NEON : WARM}
+                transparent
+                opacity={0.38}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </mesh>
+            <mesh
+              position={[-side * 0.72, 0.025, index % 2 === 0 ? 0.7 : -0.7]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <planeGeometry args={[0.72, 0.34]} />
+              <meshStandardMaterial
+                color="#313b44"
+                roughness={0.7}
+                metalness={0.28}
+              />
+            </mesh>
+            {index % 4 === 1 && (
+              <mesh position={[side * 0.78, 0.28, -0.5]}>
+                <boxGeometry args={[1.15, 0.56, 0.74]} />
+                <meshStandardMaterial
+                  color="#252f37"
+                  roughness={0.86}
+                  metalness={0.08}
+                />
+              </mesh>
+            )}
+            {index % 2 === 0 && (
+              <mesh position={[side * 0.72, 0.36, 0.62]}>
+                <cylinderGeometry args={[0.09, 0.12, 0.72, 8]} />
+                <meshStandardMaterial
+                  color="#424b53"
+                  roughness={0.46}
+                  metalness={0.56}
+                />
+              </mesh>
+            )}
+            {index % 3 === 0 && (
+              <>
+                <mesh position={[side * 0.72, 1.9, 0]}>
+                  <cylinderGeometry args={[0.07, 0.1, 3, 8]} />
+                  <meshStandardMaterial
+                    color="#202832"
+                    roughness={0.5}
+                    metalness={0.62}
+                  />
+                </mesh>
+                <mesh position={[side * 0.72, 3.35, 0]}>
+                  <boxGeometry args={[0.6, 0.16, 0.38]} />
+                  <meshBasicMaterial
+                    color={side < 0 ? NEON_SOFT : WARM}
+                    transparent
+                    opacity={0.28}
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                  />
+                </mesh>
+              </>
+            )}
+          </group>
+        );
+      })}
+
       {[-5.2, 5.2].map((x) => (
         <mesh
           key={x}
@@ -141,6 +327,21 @@ function StreetBase({
             opacity={railGlow}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
+          />
+        </mesh>
+      ))}
+
+      {[-11.1, 11.1].map((x) => (
+        <mesh
+          key={x}
+          position={[x, 0.11, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[0.16, 188]} />
+          <meshStandardMaterial
+            color="#161e25"
+            roughness={0.82}
+            metalness={0.18}
           />
         </mesh>
       ))}
@@ -161,6 +362,37 @@ function StreetBase({
           />
         </mesh>
       ))}
+
+      {Array.from({ length: 24 }).map((_, index) => {
+        const z = 38 - index * 8.2;
+        const side = index % 2 === 0 ? -1 : 1;
+
+        return (
+          <group key={index} position={[0, 0, z]}>
+            <mesh
+              position={[side * 7.2, 0.11, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <planeGeometry args={[1.8, 0.08]} />
+              <meshBasicMaterial
+                color={side < 0 ? NEON_SOFT : WARM}
+                transparent
+                opacity={0.07 + railGlow * 0.28}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </mesh>
+            <mesh position={[side * 8.7, 0.22, 0]}>
+              <boxGeometry args={[0.16, 0.24, 2.8]} />
+              <meshStandardMaterial
+                color="#111820"
+                roughness={0.62}
+                metalness={0.36}
+              />
+            </mesh>
+          </group>
+        );
+      })}
 
       {Array.from({ length: 7 }).map((_, index) => {
         const z = 18 - index * 28;
@@ -204,6 +436,288 @@ function StreetBase({
           </group>
         );
       })}
+    </group>
+  );
+}
+
+function RoadEvolution({
+  progress,
+}: {
+  progress: number;
+}) {
+  const serviceRise = smoothSegment(progress, 0.24, 0.66);
+  const dataRise = smoothSegment(progress, 0.48, 0.86);
+  const vaultRise = smoothSegment(progress, 0.76, 1);
+
+  return (
+    <group position={[0, 0.05, -52]}>
+      {[-3.45, 3.45].map((x) => (
+        <mesh key={x} position={[x, 0, -42]}>
+          <boxGeometry args={[0.28, 0.06, 104]} />
+          <meshBasicMaterial
+            color={x < 0 ? NEON_SOFT : WARM}
+            transparent
+            opacity={0.03 + serviceRise * 0.2 + dataRise * 0.12}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+      {[-82, -118, -154].map((z, index) => (
+        <group key={z} position={[0, 0, z]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[8.8, 12]} />
+            <meshPhysicalMaterial
+              color="#08141a"
+              roughness={0.18}
+              metalness={0.34}
+              transmission={0.22}
+              transparent
+              opacity={dataRise * 0.34}
+              emissive={index === 2 ? GHOST : NEON}
+              emissiveIntensity={0.03 + dataRise * 0.06}
+            />
+          </mesh>
+          <mesh position={[0, 0.05, 0]}>
+            <boxGeometry args={[8.5, 0.05, 0.12]} />
+            <meshBasicMaterial
+              color={index === 2 ? GHOST_SOFT : NEON_SOFT}
+              transparent
+              opacity={0.08 + vaultRise * 0.24}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function JourneyLandmarks({
+  progress,
+}: {
+  progress: number;
+}) {
+  const commercialRise = smoothSegment(progress, 0.12, 0.42);
+  const coreRise = smoothSegment(progress, 0.34, 0.7);
+  const vaultRise = smoothSegment(progress, 0.72, 1);
+
+  return (
+    <group>
+      <group position={[11.5, 5.2, -60]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[1.1, 1.2, 40]} />
+          <meshBasicMaterial
+            color={NEON_SOFT}
+            transparent
+            opacity={commercialRise * 0.28}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+        <mesh>
+          <cylinderGeometry args={[0.08, 0.18, 6.8, 10]} />
+          <meshStandardMaterial
+            color="#18303a"
+            roughness={0.34}
+            metalness={0.62}
+            emissive={NEON}
+            emissiveIntensity={commercialRise * 0.12}
+          />
+        </mesh>
+      </group>
+
+      <group position={[-14, 10, -112]}>
+        <mesh>
+          <boxGeometry args={[0.7, 20, 0.7]} />
+          <meshStandardMaterial
+            color="#1b2630"
+            roughness={0.38}
+            metalness={0.68}
+            emissive={NEON_SOFT}
+            emissiveIntensity={coreRise * 0.1}
+          />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.62, 3.2, 0]}>
+            <boxGeometry args={[0.06, 12, 0.06]} />
+            <meshBasicMaterial
+              color={NEON_SOFT}
+              transparent
+              opacity={coreRise * 0.24}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </group>
+
+      <group position={[3.8, 7, -178]}>
+        <mesh>
+          <boxGeometry args={[4.4, 14, 1.8]} />
+          <meshStandardMaterial
+            color="#0b1219"
+            roughness={0.26}
+            metalness={0.58}
+            emissive={GHOST_SOFT}
+            emissiveIntensity={vaultRise * 0.08}
+          />
+        </mesh>
+        <mesh position={[0, 0, 0.94]}>
+          <boxGeometry args={[2.8, 10.6, 0.06]} />
+          <meshBasicMaterial
+            color={GHOST_SOFT}
+            transparent
+            opacity={vaultRise * 0.18}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function HoverWakeField({
+  progress,
+  hoverRef,
+}: {
+  progress: number;
+  hoverRef: MutableRefObject<HoverState>;
+}) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  const scannerRef = useRef<THREE.Mesh>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+
+  useFrame(({ clock }, delta) => {
+    const hover = hoverRef.current;
+    const x = hover.x * 12;
+    const z = -28 - progress * 112 + hover.y * 14;
+    const energy = THREE.MathUtils.clamp(hover.energy, 0, 1.6);
+
+    if (ringRef.current) {
+      ringRef.current.position.x +=
+        (x - ringRef.current.position.x) *
+        (1 - Math.exp(-8 * delta));
+      ringRef.current.position.z +=
+        (z - ringRef.current.position.z) *
+        (1 - Math.exp(-8 * delta));
+      ringRef.current.scale.setScalar(1.4 + energy * 1.2);
+      const material = ringRef.current.material as THREE.MeshBasicMaterial;
+      material.opacity =
+        0.08 + energy * 0.28 + Math.sin(clock.elapsedTime * 4) * 0.025;
+      material.color.set(progress > 0.72 ? GHOST : NEON);
+    }
+
+    if (scannerRef.current) {
+      scannerRef.current.position.x = x;
+      scannerRef.current.position.z = z - 1.2;
+      scannerRef.current.rotation.z = clock.elapsedTime * 0.7;
+      const material = scannerRef.current.material as THREE.MeshBasicMaterial;
+      material.opacity = 0.04 + energy * 0.18;
+      material.color.set(progress > 0.72 ? GHOST_SOFT : NEON_SOFT);
+    }
+
+    if (lightRef.current) {
+      lightRef.current.position.set(x, 1.2, z);
+      lightRef.current.intensity = 1.5 + energy * 7;
+      lightRef.current.color.set(progress > 0.72 ? GHOST : NEON);
+    }
+  });
+
+  return (
+    <group>
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.8, 1.9, 64]} />
+        <meshBasicMaterial
+          color={NEON}
+          transparent
+          opacity={0.08}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh ref={scannerRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.3, 2.38, 72]} />
+        <meshBasicMaterial
+          color={NEON_SOFT}
+          transparent
+          opacity={0.05}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      <pointLight
+        ref={lightRef}
+        color={NEON}
+        intensity={2}
+        distance={18}
+        decay={2}
+      />
+    </group>
+  );
+}
+
+function RoadResponse({
+  progress,
+  hoverRef,
+}: {
+  progress: number;
+  hoverRef: MutableRefObject<HoverState>;
+}) {
+  const materials = useRef<THREE.MeshBasicMaterial[]>([]);
+  const segments = useMemo(
+    () =>
+      Array.from({ length: 18 }, (_, index) => ({
+        x: [-3.8, -1.6, 1.6, 3.8][index % 4] ?? 0,
+        z: -20 - index * 7.6,
+        phase: index * 0.7,
+      })),
+    [],
+  );
+
+  useFrame(({ clock }) => {
+    const hover = hoverRef.current;
+    const focusZ = -26 - progress * 92 + hover.y * 8;
+
+    segments.forEach((segment, index) => {
+      const material = materials.current[index];
+
+      if (!material) return;
+
+      const distance =
+        Math.pow(segment.x - hover.x * 8.8, 2) / 26 +
+        Math.pow(segment.z - focusZ, 2) / 180;
+      const activation = Math.exp(-distance) * hover.energy;
+      material.opacity =
+        0.035 +
+        activation * 0.68 +
+        Math.sin(clock.elapsedTime * 4.2 - segment.phase) * activation * 0.12;
+    });
+  });
+
+  return (
+    <group>
+      {segments.map((segment, index) => (
+        <mesh
+          key={index}
+          position={[segment.x, 0.075, segment.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[0.1, 4.6]} />
+          <meshBasicMaterial
+            ref={(material) => {
+              if (material) materials.current[index] = material;
+            }}
+            color={index % 5 === 0 ? WARM : NEON_SOFT}
+            transparent
+            opacity={0.04}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -416,15 +930,63 @@ function ForegroundArchitecture({
 
       <group position={[0, 6.2, -34]}>
         <mesh>
-          <boxGeometry args={[42, 0.22, 2.6]} />
+          <boxGeometry args={[31, 0.52, 2.2]} />
           <meshStandardMaterial
             color="#141920"
             roughness={0.64}
             metalness={0.24}
           />
         </mesh>
-        <mesh position={[0, 0.08, 0]}>
-          <boxGeometry args={[40, 0.05, 0.18]} />
+        <mesh position={[0, -0.4, 0]}>
+          <boxGeometry args={[30.2, 0.28, 1.7]} />
+          <meshStandardMaterial
+            color="#0b1016"
+            roughness={0.54}
+            metalness={0.42}
+          />
+        </mesh>
+        {[-13.2, 13.2].map((x) => (
+          <group key={x} position={[x, -3.25, 0]}>
+            <mesh>
+              <boxGeometry args={[0.72, 6.5, 0.9]} />
+              <meshStandardMaterial
+                color="#202933"
+                roughness={0.7}
+                metalness={0.25}
+              />
+            </mesh>
+            <mesh position={[0, -2.9, 0]}>
+              <boxGeometry args={[1.7, 0.42, 1.8]} />
+              <meshStandardMaterial
+                color="#171e27"
+                roughness={0.82}
+                metalness={0.1}
+              />
+            </mesh>
+          </group>
+        ))}
+        {[-11, -5.5, 0, 5.5, 11].map((x) => (
+          <mesh key={x} position={[x, -0.78, 0]}>
+            <boxGeometry args={[0.22, 0.5, 2.8]} />
+            <meshStandardMaterial
+              color="#27313a"
+              roughness={0.54}
+              metalness={0.48}
+            />
+          </mesh>
+        ))}
+        {[-0.92, 0.92].map((z) => (
+          <mesh key={z} position={[0, 0.48, z]}>
+            <boxGeometry args={[31.2, 0.18, 0.12]} />
+            <meshStandardMaterial
+              color="#25303a"
+              roughness={0.46}
+              metalness={0.58}
+            />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.22, 0.98]}>
+          <boxGeometry args={[29.8, 0.05, 0.08]} />
           <meshBasicMaterial
             color={ghostRise > 0.24 ? GHOST : NEON}
             transparent
@@ -605,6 +1167,112 @@ function DataTraffic({
   );
 }
 
+function AerialDataRibbons({
+  progress,
+}: {
+  progress: number;
+}) {
+  const ribbons = useMemo(() => {
+    const rng = createRng(128);
+
+    return Array.from({ length: 18 }, (_, index) => ({
+      x: range(rng, -18, 18),
+      y: range(rng, 5.5, 13.5),
+      z: range(rng, -158, -18),
+      width: range(rng, 0.035, 0.08),
+      length: range(rng, 8, 24),
+      speed: range(rng, 4, 10),
+      color: index % 5 === 0 ? GHOST : index % 3 === 0 ? WARM : NEON,
+      phase: range(rng, 0, Math.PI * 2),
+    }));
+  }, []);
+
+  const refs = useRef<THREE.Mesh[]>([]);
+  const visible = smoothSegment(progress, 0.16, 0.68);
+
+  useFrame(({ clock }) => {
+    refs.current.forEach((mesh, index) => {
+      const ribbon = ribbons[index];
+
+      if (!mesh || !ribbon) {
+        return;
+      }
+
+      const travel =
+        ((clock.elapsedTime * ribbon.speed + ribbon.phase * 8) % 160) - 80;
+      mesh.position.z = ribbon.z + travel;
+      mesh.position.y =
+        ribbon.y + Math.sin(clock.elapsedTime * 0.8 + ribbon.phase) * 0.28;
+      mesh.rotation.y = Math.sin(clock.elapsedTime * 0.25 + index) * 0.16;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.opacity =
+        visible * (0.14 + Math.sin(clock.elapsedTime * 2 + index) * 0.04);
+    });
+  });
+
+  return (
+    <group visible={visible > 0.01}>
+      {ribbons.map((ribbon, index) => (
+        <mesh
+          key={index}
+          ref={(mesh) => {
+            if (mesh) {
+              refs.current[index] = mesh;
+            }
+          }}
+          position={[ribbon.x, ribbon.y, ribbon.z]}
+          rotation={[0, index % 2 === 0 ? 0.2 : -0.2, 0]}
+        >
+          <boxGeometry args={[ribbon.width, 0.04, ribbon.length]} />
+          <meshBasicMaterial
+            color={ribbon.color}
+            transparent
+            opacity={0}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function PremiumDepthPlanes({
+  progress,
+}: {
+  progress: number;
+}) {
+  const rise = smoothSegment(progress, 0.04, 0.42);
+
+  return (
+    <group>
+      {Array.from({ length: 7 }).map((_, index) => {
+        const z = -42 - index * 23;
+        const y = 2.4 + index * 0.75;
+        const side = index % 2 === 0 ? -1 : 1;
+
+        return (
+          <mesh
+            key={index}
+            position={[side * (11 + index * 0.9), y, z]}
+            rotation={[0, side * 0.45, 0]}
+          >
+            <planeGeometry args={[4.8 + index * 0.7, 1.4]} />
+            <meshBasicMaterial
+              color={index > 4 ? GHOST_SOFT : NEON_SOFT}
+              transparent
+              opacity={rise * (0.035 + index * 0.006)}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
 function ReactiveSigns({
   progress,
   hoverRef,
@@ -649,7 +1317,7 @@ function ReactiveSigns({
   useFrame(({ clock }) => {
     const hover = hoverRef.current;
     const hoverX = hover.x * 14;
-    const hoverZ = -36 + hover.y * 10;
+    const hoverZ = -26 - progress * 92 + hover.y * 10;
     const base =
       0.18 +
       smoothSegment(progress, 0.08, 0.42) * 0.22;
@@ -670,7 +1338,7 @@ function ReactiveSigns({
       const dx = sign.x - hoverX;
       const dz = sign.z - hoverZ;
       const influence = Math.exp(
-        -(dx * dx) / 30 - (dz * dz) / 160,
+        -(dx * dx) / 44 - (dz * dz) / 220,
       );
       const pulse =
         0.5 +
@@ -680,11 +1348,11 @@ function ReactiveSigns({
       material.opacity =
         base +
         pulse * 0.1 +
-        influence * 0.5 +
+        influence * (0.8 + hover.energy * 0.4) +
         ghostRise * 0.08;
       hologram.opacity =
         0.03 +
-        influence * 0.26 +
+        influence * (0.38 + hover.energy * 0.18) +
         pulse * 0.06;
     });
   });
@@ -743,37 +1411,258 @@ function ElevatedTransit({
   progress: number;
 }) {
   const rise = smoothSegment(progress, 0.32, 0.68);
+  const routes = [
+    { x: -11.2, y: 6.2, z: -36, length: 38, color: NEON },
+    { x: 10.8, y: 5.4, z: -68, length: 30, color: WARM },
+    { x: -13.4, y: 7.6, z: -98, length: 42, color: NEON_SOFT },
+    { x: 12.6, y: 8.5, z: -130, length: 34, color: GHOST_SOFT },
+  ];
 
   return (
-    <group
-      position={[0, 4.6 + (1 - rise) * 3, -70]}
-      visible={rise > 0.01}
-    >
-      {[-1, 1].map((side) => (
-        <group
-          key={side}
-          position={[side * 8.5, 0, 0]}
-        >
+    <group position={[0, (1 - rise) * 2.4, 0]} visible={rise > 0.01}>
+      {routes.map((route, index) => (
+        <group key={index} position={[route.x, route.y, route.z]}>
           <mesh>
-            <boxGeometry args={[17, 0.36, 110]} />
+            <boxGeometry args={[5.4, 0.52, route.length]} />
             <meshStandardMaterial
               color="#11161d"
-              roughness={0.74}
-              metalness={0.3}
+              roughness={0.64}
+              metalness={0.42}
             />
           </mesh>
-          <mesh position={[0, 0.16, 0]}>
-            <boxGeometry args={[16.4, 0.06, 110]} />
+          <mesh position={[0, -0.42, 0]}>
+            <boxGeometry args={[4.8, 0.32, route.length - 0.8]} />
+            <meshStandardMaterial
+              color="#090e14"
+              roughness={0.56}
+              metalness={0.48}
+            />
+          </mesh>
+          {[-2.25, 2.25].map((x) => (
+            <mesh key={x} position={[x, 0.42, 0]}>
+              <boxGeometry args={[0.16, 0.48, route.length]} />
+              <meshStandardMaterial
+                color="#28333d"
+                roughness={0.46}
+                metalness={0.66}
+              />
+            </mesh>
+          ))}
+          {[-1.65, 1.65].map((x) => (
+            <mesh key={x} position={[x, 0.34, 0]}>
+              <boxGeometry args={[0.08, 0.1, route.length - 0.8]} />
+              <meshBasicMaterial
+                color={route.color}
+                transparent
+                opacity={0.18 + rise * 0.2}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </mesh>
+          ))}
+          {[-0.34, 0.34].map((offset) => (
+            <group key={offset} position={[0, -route.y * 0.5, route.length * offset]}>
+              <mesh>
+                <boxGeometry args={[0.62, route.y, 0.9]} />
+                <meshStandardMaterial
+                  color="#222b35"
+                  roughness={0.72}
+                  metalness={0.26}
+                />
+              </mesh>
+              <mesh position={[0, -route.y * 0.48, 0]}>
+                <boxGeometry args={[1.9, 0.38, 2.1]} />
+                <meshStandardMaterial
+                  color="#161e27"
+                  roughness={0.8}
+                  metalness={0.14}
+                />
+              </mesh>
+            </group>
+          ))}
+          {[-0.24, 0.24].map((offset) => (
+            <mesh
+              key={offset}
+              position={[0, -0.72, route.length * offset]}
+              rotation={[0, 0, offset < 0 ? -0.34 : 0.34]}
+            >
+              <boxGeometry args={[5.9, 0.16, 0.16]} />
+              <meshStandardMaterial
+                color="#25303a"
+                roughness={0.48}
+                metalness={0.54}
+              />
+            </mesh>
+          ))}
+          <mesh position={[0, 0.14, -route.length * 0.5 + 0.3]}>
+            <boxGeometry args={[4.9, 0.05, 0.1]} />
             <meshBasicMaterial
-              color={side < 0 ? NEON : WARM}
+              color={route.color}
               transparent
-              opacity={0.08 + rise * 0.18}
+              opacity={0.24 + rise * 0.18}
               blending={THREE.AdditiveBlending}
               depthWrite={false}
             />
           </mesh>
         </group>
       ))}
+    </group>
+  );
+}
+
+function KernelLightShafts({
+  progress,
+}: {
+  progress: number;
+}) {
+  const rise = smoothSegment(progress, 0.72, 0.96);
+  const refs = useRef<THREE.Mesh[]>([]);
+
+  useFrame(({ clock }) => {
+    refs.current.forEach((mesh, index) => {
+      if (!mesh) {
+        return;
+      }
+
+      mesh.rotation.y =
+        Math.sin(clock.elapsedTime * 0.12 + index) * 0.08;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.opacity =
+        rise *
+        (0.035 + Math.sin(clock.elapsedTime * 0.5 + index) * 0.012);
+    });
+  });
+
+  return (
+    <group visible={rise > 0.01}>
+      {Array.from({ length: 9 }).map((_, index) => {
+        const side = index % 2 === 0 ? -1 : 1;
+        const z = -92 - index * 18;
+        const x = side * (12 + (index % 3) * 3.5);
+
+        return (
+          <mesh
+            key={index}
+            ref={(mesh) => {
+              if (mesh) {
+                refs.current[index] = mesh;
+              }
+            }}
+            position={[x, 9 + index * 0.7, z]}
+            rotation={[0, side * 0.22, Math.PI / 18]}
+          >
+            <planeGeometry args={[1.2, 38]} />
+            <meshBasicMaterial
+              color={index > 5 ? GHOST_SOFT : NEON_SOFT}
+              transparent
+              opacity={0}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+function KernelHorizon({
+  progress,
+}: {
+  progress: number;
+}) {
+  const rise = smoothSegment(progress, 0.84, 1);
+  const ringRefs = useRef<THREE.Mesh[]>([]);
+
+  useFrame(({ clock }) => {
+    ringRefs.current.forEach((ring, index) => {
+      if (!ring) {
+        return;
+      }
+
+      ring.rotation.z =
+        clock.elapsedTime * (index % 2 === 0 ? 0.04 : -0.028);
+      ring.rotation.y =
+        Math.sin(clock.elapsedTime * 0.16 + index) * 0.05;
+      const material = ring.material as THREE.MeshBasicMaterial;
+      material.opacity = rise * (0.08 + index * 0.025);
+    });
+  });
+
+  return (
+    <group visible={rise > 0.01} position={[0, 8.5, -224]}>
+      <mesh position={[0, 0, -22]}>
+        <boxGeometry args={[112, 34, 2]} />
+        <meshBasicMaterial
+          color="#05131c"
+          transparent
+          opacity={0.18 * rise}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {[5.5, 8.5, 12.5].map((radius, index) => (
+        <mesh
+          key={radius}
+          ref={(mesh) => {
+            if (mesh) {
+              ringRefs.current[index] = mesh;
+            }
+          }}
+          rotation={[Math.PI / 2.25, 0, 0]}
+        >
+          <ringGeometry args={[radius, radius + 0.08, 96]} />
+          <meshBasicMaterial
+            color={index === 2 ? GHOST_SOFT : NEON_SOFT}
+            transparent
+            opacity={0}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * 10.5, -3.8, 4]}>
+          <mesh>
+            <boxGeometry args={[2.2, 18, 2.8]} />
+            <meshStandardMaterial
+              color="#0a1118"
+              roughness={0.5}
+              metalness={0.36}
+              emissive={side < 0 ? NEON : GHOST}
+              emissiveIntensity={0.12 * rise}
+            />
+          </mesh>
+          <mesh position={[0, 0, 1.45]}>
+            <boxGeometry args={[1.4, 14, 0.08]} />
+            <meshBasicMaterial
+              color={side < 0 ? NEON : GHOST}
+              transparent
+              opacity={0.16 * rise}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      <pointLight
+        color={NEON_SOFT}
+        intensity={8 * rise}
+        distance={80}
+        decay={2}
+        position={[0, 0, 8]}
+      />
+      <pointLight
+        color={GHOST_SOFT}
+        intensity={5 * rise}
+        distance={70}
+        decay={2}
+        position={[9, -2, -8]}
+      />
     </group>
   );
 }
@@ -818,17 +1707,17 @@ function HoverPulse({
     const beamMaterial = beam.material as THREE.MeshBasicMaterial;
     const ringMaterial = ring.material as THREE.MeshBasicMaterial;
     const pulseOpacity =
-      0.04 + hover.energy * 0.12 + pulse * 0.04;
+      0.08 + hover.energy * 0.26 + pulse * 0.06;
 
     beamMaterial.opacity =
       pulseOpacity + ghostRise * 0.06;
     ringMaterial.opacity =
-      0.08 + hover.energy * 0.18 + pulse * 0.08;
+      0.14 + hover.energy * 0.32 + pulse * 0.1;
     beam.scale.y = 0.82 + hover.energy * 0.6;
     ring.scale.setScalar(
-      0.92 + hover.energy * 0.45 + pulse * 0.08,
+      1.1 + hover.energy * 0.75 + pulse * 0.1,
     );
-    light.intensity = 1.2 + hover.energy * 5 + ghostRise * 3;
+    light.intensity = 2.2 + hover.energy * 9 + ghostRise * 4;
     light.color.set(ghostRise > 0.24 ? GHOST : NEON);
   });
 
@@ -893,8 +1782,10 @@ function HologramFields({
         return;
       }
 
+      const hoverZ = -26 - progress * 92 + hover.y * 10;
       const hoverInfluence = Math.exp(
-        -Math.pow(group.position.x - hover.x * 11, 2) / 18,
+        -Math.pow(group.position.x - hover.x * 11, 2) / 18 -
+          Math.pow(group.position.z - hoverZ, 2) / 240,
       );
 
       group.position.y =
@@ -960,6 +1851,22 @@ function HologramFields({
               depthWrite={false}
             />
           </mesh>
+          {[-0.64, 0, 0.64].map((y) => (
+            <mesh
+              key={y}
+              position={[0, y, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <ringGeometry args={[0.18, 0.52, 24]} />
+              <meshBasicMaterial
+                color={index % 2 === 0 ? NEON_SOFT : GHOST_SOFT}
+                transparent
+                opacity={0.1 + baseRise * 0.08}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </mesh>
+          ))}
         </group>
       ))}
     </group>
@@ -1036,8 +1943,10 @@ function GhostCorruption({
         return;
       }
 
+      const hoverZ = -26 - progress * 122 + hover.y * 10;
       const hoverPull = Math.exp(
-        -Math.pow(group.position.x - hover.x * 13, 2) / 20,
+        -Math.pow(group.position.x - hover.x * 13, 2) / 20 -
+          Math.pow(group.position.z - hoverZ, 2) / 260,
       );
 
       group.position.y =
@@ -1307,10 +2216,12 @@ function DistantMegacity({
 
 type WorldSceneProps = {
   progress: number;
+  timeline: MutableRefObject<CinematicValues>;
 };
 
 export function WorldScene({
   progress,
+  timeline,
 }: WorldSceneProps) {
   const hoverRef = useRef<HoverState>({
     x: 0,
@@ -1324,29 +2235,39 @@ export function WorldScene({
       <StreetAtmosphere progress={progress} />
       <WorldRig progress={progress} hoverRef={hoverRef}>
         <StreetBase progress={progress} />
+        <RoadEvolution progress={progress} />
+        <HoverWakeField progress={progress} hoverRef={hoverRef} />
+        <RoadResponse progress={progress} hoverRef={hoverRef} />
         <ForegroundArchitecture progress={progress} />
+        <PremiumDepthPlanes progress={progress} />
+        <JourneyLandmarks progress={progress} />
         <DistantMegacity progress={progress} />
-        <ArchitecturalTowerField progress={progress} />
+        <ArchitecturalTowerField progress={progress} hoverRef={hoverRef} />
         <ElevatedTransit progress={progress} />
+        <KernelLightShafts progress={progress} />
+        <KernelHorizon progress={progress} />
+        <RepositoryWorld progress={progress} />
+        <SkySystem progress={progress} timeline={timeline} />
         <ReactiveSigns progress={progress} hoverRef={hoverRef} />
         <HologramFields progress={progress} hoverRef={hoverRef} />
         <HoverPulse progress={progress} hoverRef={hoverRef} />
+        <AerialDataRibbons progress={progress} />
         <DataTraffic progress={progress} />
         <GhostCorruption progress={progress} hoverRef={hoverRef} />
         <AtmosphereParticles progress={progress} />
       </WorldRig>
       <EffectComposer multisampling={0}>
         <Bloom
-          intensity={1.3}
-          luminanceThreshold={0.12}
-          luminanceSmoothing={0.5}
+          intensity={1.08}
+          luminanceThreshold={0.2}
+          luminanceSmoothing={0.62}
           mipmapBlur
         />
-        <Noise opacity={0.02} />
+        <Noise opacity={0.014} />
         <Vignette
           eskil={false}
           offset={0.16}
-          darkness={0.86}
+          darkness={0.82}
         />
       </EffectComposer>
     </>

@@ -1,35 +1,98 @@
+import { animate } from "animejs";
+import { useEffect, useRef } from "react";
+
 import {
   DISTRICTS,
   GHOST,
   GHOST_SOFT,
   NEON,
   NEON_SOFT,
-  PANEL,
   PANEL_BORDER,
   WHITE,
 } from "../shared";
+import type { CinematicCue } from "../timeline/CinematicTimeline";
 
 type OverlayProps = {
   progress: number;
+  cue: CinematicCue;
 };
+
+function mixOverlayColor(
+  color: string,
+  strength: number,
+) {
+  if (strength <= 0) {
+    return "rgba(255,255,255,0.16)";
+  }
+
+  const normalized = color.replace("#", "");
+
+  if (normalized.length !== 6) {
+    return color;
+  }
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  const alpha = 0.16 + strength * 0.84;
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 export function Overlay({
   progress,
+  cue,
 }: OverlayProps) {
+  const manifestoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const panel = manifestoRef.current;
+    if (!panel) return;
+
+    const animation = animate(panel, {
+      opacity: [0.28, 1],
+      duration: 420,
+      ease: "out(3)",
+    });
+
+    return () => {
+      animation.cancel();
+    };
+  }, [cue.id]);
   const activeDistrict =
     [...DISTRICTS]
       .reverse()
       .find((district) => progress >= district.at)
       ?.label ?? DISTRICTS[0].label;
+  const currentIndex = Math.max(
+    0,
+    DISTRICTS.findIndex(
+      (district, index) =>
+        progress < (DISTRICTS[index + 1]?.at ?? 1.1),
+    ),
+  );
+  const activeIsGhost =
+    activeDistrict === "Ghost Breach" ||
+    activeDistrict === "Ghost Repository";
 
   const manifesto =
-    progress < 0.28
+    progress < 0.1
       ? "A street-level software city where every sign, tower, and current is alive."
-      : progress < 0.58
+      : progress < 0.22
         ? "Scroll moves deeper into the architecture. Hover wakes up the nearby world."
-        : progress < 0.82
+        : progress < 0.36
           ? "The city shifts from commerce to infrastructure to system core without cuts."
-          : "Corruption enters the frame slowly, then takes the district without breaking the shot.";
+          : progress < 0.54
+            ? "The route drops under the visible city into routing decks, service bridges, and data pressure."
+            : progress < 0.68
+              ? "Corruption enters the frame slowly, then takes the district without breaking the shot."
+              : progress < 0.82
+                ? "The kernel resolves into directories, dependencies, services, and live execution paths."
+                : progress < 0.92
+                  ? "The repository reveals its abandoned processes, broken links, and haunted system memory."
+                  : progress < 0.97
+                    ? "Analysis exposes the dead archive, then the city starts repairing its own software."
+                    : "Future architecture carries the system beyond the repository into an open horizon.";
 
   return (
     <div className="pointer-events-none fixed inset-0 z-10">
@@ -48,7 +111,7 @@ export function Overlay({
               "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace",
             fontSize: 48,
             lineHeight: 0.9,
-            letterSpacing: "-0.08em",
+            letterSpacing: "-0.02em",
             fontWeight: 700,
             color: WHITE,
             textShadow: "0 0 32px rgba(255,255,255,0.16)",
@@ -74,18 +137,19 @@ export function Overlay({
       </div>
 
       <div
+        ref={manifestoRef}
         style={{
           position: "absolute",
           top: 46,
           right: 34,
-          width: "min(360px, calc(100vw - 68px))",
-          padding: "18px 20px",
-          borderRadius: 24,
+          width: "min(330px, calc(100vw - 68px))",
+          padding: "14px 16px",
+          borderRadius: 6,
           border: `1px solid ${PANEL_BORDER}`,
-          background: PANEL,
-          backdropFilter: "blur(18px)",
-          WebkitBackdropFilter: "blur(18px)",
-          boxShadow: "0 16px 60px rgba(0,0,0,0.26)",
+          background: "rgba(4, 9, 14, 0.22)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          boxShadow: "0 12px 46px rgba(0,0,0,0.2)",
         }}
       >
         <div
@@ -105,10 +169,9 @@ export function Overlay({
           style={{
             fontFamily:
               "Iowan Old Style, Palatino Linotype, Book Antiqua, Georgia, serif",
-            fontSize: 28,
-            lineHeight: 1.05,
+            fontSize: 23,
+            lineHeight: 1.08,
             color: WHITE,
-            textWrap: "balance",
           }}
         >
           {manifesto}
@@ -130,12 +193,12 @@ export function Overlay({
               "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace",
             fontSize: 14,
             lineHeight: 1.5,
-            color: "rgba(255,255,255,0.84)",
+            color: "rgba(255,255,255,0.72)",
           }}
         >
           Scroll to enter the city.
           <br />
-          Hover to wake nearby neon.
+          Move cursor to scan nearby systems.
         </div>
         <div
           style={{
@@ -144,7 +207,7 @@ export function Overlay({
             fontSize: 13,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
-            color: progress > 0.74 ? GHOST_SOFT : NEON_SOFT,
+            color: activeIsGhost ? GHOST_SOFT : NEON_SOFT,
           }}
         >
           {activeDistrict}
@@ -158,12 +221,27 @@ export function Overlay({
           bottom: 34,
           width: 150,
           display: "grid",
-          gap: 8,
+          gap: 7,
           justifyItems: "end",
         }}
       >
-        {DISTRICTS.map((district) => {
-          const active = progress >= district.at;
+        {DISTRICTS.map((district, index) => {
+          const isCurrent = index === currentIndex;
+          const hasPassed = index < currentIndex;
+          const approach = Math.max(
+            0,
+            Math.min(1, (progress - (district.at - 0.16)) / 0.16),
+          );
+          const routeStrength = isCurrent
+            ? 1
+            : hasPassed
+              ? 0.48
+              : approach * 0.34;
+          const color =
+            district.label === "Ghost Breach" ||
+            district.label === "Ghost Repository"
+              ? GHOST
+              : NEON;
 
           return (
             <div
@@ -176,14 +254,15 @@ export function Overlay({
             >
               <div
                 style={{
-                  width: active ? 56 : 28,
+                  width: 28 + routeStrength * 28,
                   height: 1,
-                  background: active
-                    ? district.at > 0.72
-                      ? GHOST
-                      : NEON
-                    : "rgba(255,255,255,0.16)",
-                  transition: "width 180ms ease",
+                  background:
+                    mixOverlayColor(color, routeStrength),
+                  boxShadow:
+                    routeStrength > 0.4
+                      ? `0 0 10px ${color}`
+                      : "none",
+                  transition: "width 260ms ease, background 260ms ease",
                 }}
               />
               <div
@@ -193,7 +272,11 @@ export function Overlay({
                   fontSize: 11,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
-                  color: active ? WHITE : "rgba(255,255,255,0.4)",
+                  color: isCurrent
+                    ? WHITE
+                    : hasPassed
+                      ? "rgba(255,255,255,0.62)"
+                      : "rgba(255,255,255,0.4)",
                 }}
               >
                 {district.label}

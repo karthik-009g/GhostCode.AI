@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import * as THREE from "three";
 
 type SkylineLayer = {
   z: number;

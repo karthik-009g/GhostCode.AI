@@ -13,21 +13,18 @@ import {
   createRng,
   range,
   smoothSegment,
+  type HoverState,
   type TowerSpec,
 } from "../shared";
-
-type TowerArchetype =
-  | "stepped-core"
-  | "glass-spine"
-  | "podium-stack"
-  | "breach-tower";
-
-type FacadeRow = {
-  y: number;
-  width: number;
-  opacity: number;
-  phase: number;
-};
+import {
+  ARCHITECTURE_PROFILES,
+  getTowerArchetype,
+  type ArchitectureProfile,
+} from "./ArchitectureProfiles";
+import { BuildingConnections } from "./BuildingConnections";
+import { FacadeDetailModules } from "./FacadeModules";
+import { RoofAccessories } from "./RoofAccessories";
+import { createWindowBands } from "./WindowSystem";
 
 type MechanicalBand = {
   y: number;
@@ -41,27 +38,6 @@ function pickTint(flavor: TowerSpec["flavor"]) {
   if (flavor === "residential") return WARM;
   if (flavor === "market") return NEON_SOFT;
   return NEON;
-}
-
-function pickArchetype(spec: TowerSpec, index: number): TowerArchetype {
-  if (spec.flavor === "ghost") return "breach-tower";
-  if (spec.flavor === "residential") return "podium-stack";
-  if ((index + spec.side) % 3 === 0) return "glass-spine";
-  return "stepped-core";
-}
-
-function useFacadeRows(spec: TowerSpec, index: number) {
-  return useMemo<FacadeRow[]>(() => {
-    const rng = createRng(index * 911 + Math.floor(spec.height * 37));
-    const count = Math.max(7, Math.floor(spec.height / 2.4));
-
-    return Array.from({ length: count }, (_, row) => ({
-      y: -spec.height * 0.38 + row * (spec.height / count),
-      width: spec.width * range(rng, 0.54, 0.86),
-      opacity: range(rng, 0.08, 0.3),
-      phase: range(rng, 0, Math.PI * 2),
-    }));
-  }, [index, spec.height, spec.width]);
 }
 
 function useMechanicalBands(spec: TowerSpec, index: number) {
@@ -81,14 +57,22 @@ function useMechanicalBands(spec: TowerSpec, index: number) {
 function TowerPodium({
   spec,
   tint,
+  profile,
 }: {
   spec: TowerSpec;
   tint: string;
+  profile: ArchitectureProfile;
 }) {
   return (
     <group position={[0, -spec.height * 0.5 + 0.5, 0]}>
       <mesh>
-        <boxGeometry args={[spec.width * 1.32, 1, spec.depth * 1.18]} />
+        <boxGeometry
+          args={[
+            spec.width * profile.podiumScale,
+            1,
+            spec.depth * (1.12 + (profile.podiumScale - 1) * 0.32),
+          ]}
+        />
         <meshStandardMaterial
           color="#090d13"
           roughness={0.88}
@@ -115,6 +99,39 @@ function TowerPodium({
           />
         </mesh>
       ))}
+      <mesh position={[0, 0.28, spec.depth * 0.61]}>
+        <boxGeometry args={[spec.width * 0.34, 0.48, 0.24]} />
+        <meshPhysicalMaterial
+          color="#152532"
+          roughness={0.22}
+          metalness={0.18}
+          transmission={0.3}
+          transparent
+          opacity={0.58}
+          emissive={tint}
+          emissiveIntensity={0.12}
+        />
+      </mesh>
+      <mesh position={[spec.side * spec.width * 0.38, 0.08, -spec.depth * 0.54]}>
+        <boxGeometry args={[spec.width * 0.32, 0.3, 0.1]} />
+        <meshStandardMaterial
+          color="#1a222c"
+          roughness={0.5}
+          metalness={0.42}
+          emissive={tint}
+          emissiveIntensity={0.06}
+        />
+      </mesh>
+      <mesh position={[-spec.side * spec.width * 0.38, 0.16, spec.depth * 0.56]}>
+        <boxGeometry args={[spec.width * 0.18, 0.22, 0.16]} />
+        <meshBasicMaterial
+          color={tint}
+          transparent
+          opacity={0.2}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }
@@ -123,10 +140,12 @@ function RooftopMachinery({
   spec,
   tint,
   pulseRef,
+  profile,
 }: {
   spec: TowerSpec;
   tint: string;
   pulseRef: MutableRefObject<THREE.MeshBasicMaterial | null>;
+  profile: ArchitectureProfile;
 }) {
   const roofY = spec.height * 0.5 + spec.crown + 0.12;
 
@@ -173,6 +192,54 @@ function RooftopMachinery({
           depthWrite={false}
         />
       </mesh>
+      {profile.roof === "cooling" &&
+        [-0.26, 0, 0.26].map((offset) => (
+          <mesh key={offset} position={[spec.width * offset, 0.28, spec.depth * 0.28]}>
+            <cylinderGeometry args={[0.18, 0.22, 0.44, 10]} />
+            <meshStandardMaterial color="#34404a" roughness={0.48} metalness={0.52} />
+          </mesh>
+        ))}
+      {profile.roof === "drone-pad" && (
+        <>
+          <mesh position={[0, 0.16, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[spec.width * 0.22, spec.width * 0.26, 24]} />
+            <meshBasicMaterial
+              color={tint}
+              transparent
+              opacity={0.36}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh position={[0, 0.18, 0]}>
+            <boxGeometry args={[spec.width * 0.28, 0.04, 0.08]} />
+            <meshBasicMaterial color={tint} transparent opacity={0.44} />
+          </mesh>
+        </>
+      )}
+      {profile.roof === "radome" && (
+        <mesh position={[spec.width * 0.24, 0.38, 0]}>
+          <sphereGeometry args={[0.28, 12, 10]} />
+          <meshStandardMaterial
+            color="#b8ced9"
+            roughness={0.32}
+            metalness={0.58}
+            emissive={tint}
+            emissiveIntensity={0.08}
+          />
+        </mesh>
+      )}
+      {profile.roof === "utility" && (
+        <group position={[0, 0.18, -spec.depth * 0.2]}>
+          {[-0.22, 0.22].map((offset) => (
+            <mesh key={offset} position={[spec.width * offset, 0, 0]}>
+              <boxGeometry args={[spec.width * 0.16, 0.46, spec.depth * 0.18]} />
+              <meshStandardMaterial color="#29323b" roughness={0.66} metalness={0.44} />
+            </mesh>
+          ))}
+        </group>
+      )}
+      <RoofAccessories spec={spec} tint={tint} profile={profile} />
     </group>
   );
 }
@@ -225,17 +292,19 @@ function MechanicalFloors({
 function FacadeFrames({
   spec,
   tint,
-  archetype,
+  profile,
   neonRise,
   ghostRise,
+  trimMaterials,
 }: {
   spec: TowerSpec;
   tint: string;
-  archetype: TowerArchetype;
+  profile: ArchitectureProfile;
   neonRise: number;
   ghostRise: number;
+  trimMaterials: MutableRefObject<THREE.MeshStandardMaterial[]>;
 }) {
-  const columnCount = archetype === "glass-spine" ? 4 : 3;
+  const columnCount = profile.facade === "glass-grid" ? 4 : 3;
 
   return (
     <>
@@ -253,6 +322,9 @@ function FacadeFrames({
           >
             <boxGeometry args={[0.055, spec.height * 0.78, 0.12]} />
             <meshStandardMaterial
+              ref={(material) => {
+                if (material) trimMaterials.current[index] = material;
+              }}
               color="#242d38"
               roughness={0.42}
               metalness={0.58}
@@ -270,9 +342,29 @@ function FacadeFrames({
         >
           <boxGeometry args={[0.09, spec.height * 0.82, spec.depth * 0.18]} />
           <meshStandardMaterial
+            ref={(material) => {
+              if (material) trimMaterials.current[columnCount + (side + 1) / 2] = material;
+            }}
             color="#1d2530"
             roughness={0.48}
             metalness={0.5}
+          />
+        </mesh>
+      ))}
+      {Array.from({ length: 5 }, (_, index) => (
+        <mesh
+          key={`floor-frame-${index}`}
+          position={[
+            0,
+            -spec.height * 0.28 + index * (spec.height * 0.16),
+            spec.depth * 0.532,
+          ]}
+        >
+          <boxGeometry args={[spec.width * 0.9, 0.075, 0.1]} />
+          <meshStandardMaterial
+            color="#27303a"
+            roughness={0.44}
+            metalness={0.54}
           />
         </mesh>
       ))}
@@ -359,40 +451,64 @@ function CyberpunkTower({
   spec,
   progress,
   index,
+  hoverRef,
 }: {
   spec: TowerSpec;
   progress: number;
   index: number;
+  hoverRef: MutableRefObject<HoverState>;
 }) {
-  const archetype = pickArchetype(spec, index);
+  const archetype = getTowerArchetype(spec, index);
+  const profile = ARCHITECTURE_PROFILES[archetype];
   const tint = pickTint(spec.flavor);
-  const rows = useFacadeRows(spec, index);
+  const rows = useMemo(
+    () => createWindowBands(spec, index, profile.windowDensity),
+    [index, profile.windowDensity, spec],
+  );
   const bands = useMechanicalBands(spec, index);
   const rowMaterials = useRef<THREE.MeshBasicMaterial[]>([]);
+  const trimMaterials = useRef<THREE.MeshStandardMaterial[]>([]);
   const beaconMaterial = useRef<THREE.MeshBasicMaterial | null>(null);
   const glassMaterial = useRef<THREE.MeshPhysicalMaterial>(null);
+  const localActivation = useRef(0);
 
   const neonRise = smoothSegment(progress, 0.08, 0.5);
   const ghostRise =
     spec.flavor === "ghost" ? smoothSegment(progress, 0.66, 1) : 0;
-  const lowerScale = archetype === "podium-stack" ? 1.08 : 1;
-  const midScale =
-    archetype === "glass-spine" ? 0.78 : archetype === "breach-tower" ? 0.88 : 0.9;
-  const crownScale =
-    archetype === "stepped-core" ? 0.54 : archetype === "glass-spine" ? 0.42 : 0.64;
+  const lowerScale = profile.lowerScale;
+  const midScale = profile.midScale;
+  const crownScale = profile.crownScale;
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const pulse = 0.55 + Math.sin(t * 1.6 + index * 0.41) * 0.45;
+    const hover = hoverRef.current;
+    const focusZ = -22 - progress * 128 + hover.y * 10;
+    const distance =
+      Math.pow(spec.x - hover.x * 13, 2) / 140 +
+      Math.pow(spec.z - focusZ, 2) / 330;
+    const targetActivation = Math.exp(-distance) * Math.min(1, hover.energy);
+    localActivation.current +=
+      (targetActivation - localActivation.current) * 0.08;
 
     if (beaconMaterial.current) {
-      beaconMaterial.current.opacity = 0.48 + pulse * 0.42 + ghostRise * 0.1;
+      beaconMaterial.current.opacity =
+        0.34 + pulse * 0.34 + ghostRise * 0.1 + localActivation.current * 0.28;
     }
 
     if (glassMaterial.current) {
       glassMaterial.current.emissiveIntensity =
-        0.12 + neonRise * 0.2 + ghostRise * 0.38 + pulse * 0.04;
+        0.12 +
+        neonRise * 0.2 +
+        ghostRise * 0.38 +
+        pulse * 0.04 +
+        localActivation.current * 0.28;
     }
+
+    trimMaterials.current.forEach((material) => {
+      material.emissiveIntensity =
+        0.04 + neonRise * 0.05 + ghostRise * 0.08 + localActivation.current * 0.2;
+    });
 
     rowMaterials.current.forEach((material, rowIndex) => {
       const row = rows[rowIndex];
@@ -402,6 +518,7 @@ function CyberpunkTower({
         row.opacity +
         neonRise * 0.1 +
         ghostRise * 0.08 +
+        localActivation.current * (rowIndex % 3 === 0 ? 0.38 : 0.16) +
         Math.sin(t * 0.85 + row.phase) * 0.035;
     });
   });
@@ -411,7 +528,7 @@ function CyberpunkTower({
       position={[spec.x, spec.height * 0.5, spec.z]}
       rotation={[0, spec.side * -0.08, 0]}
     >
-      <TowerPodium spec={spec} tint={tint} />
+      <TowerPodium spec={spec} tint={tint} profile={profile} />
 
       <mesh position={[0, -spec.height * 0.12, 0]}>
         <boxGeometry
@@ -443,6 +560,43 @@ function CyberpunkTower({
         />
       </mesh>
 
+      {profile.secondaryShaft && (
+        <group
+          position={[
+            spec.side * spec.width * 0.42,
+            spec.height * 0.03,
+            -spec.depth * 0.18,
+          ]}
+        >
+          <mesh>
+            <boxGeometry
+              args={[
+                spec.width * 0.3,
+                spec.height * 0.62,
+                spec.depth * 0.48,
+              ]}
+            />
+            <meshStandardMaterial
+              color={profile.facade === "fractured" ? "#250c17" : "#111925"}
+              roughness={0.54}
+              metalness={0.38}
+              emissive={tint}
+              emissiveIntensity={0.05 + ghostRise * 0.16}
+            />
+          </mesh>
+          <mesh position={[0, 0, spec.depth * 0.255]}>
+            <boxGeometry args={[spec.width * 0.24, spec.height * 0.52, 0.08]} />
+            <meshBasicMaterial
+              color={tint}
+              transparent
+              opacity={0.08 + neonRise * 0.14 + ghostRise * 0.12}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      )}
+
       <mesh position={[0, spec.height * 0.33, 0]}>
         <boxGeometry
           args={[spec.width * 0.82, 0.18, spec.depth * 1.08]}
@@ -461,10 +615,13 @@ function CyberpunkTower({
       <FacadeFrames
         spec={spec}
         tint={tint}
-        archetype={archetype}
+        profile={profile}
         neonRise={neonRise}
         ghostRise={ghostRise}
+        trimMaterials={trimMaterials}
       />
+
+      <FacadeDetailModules spec={spec} tint={tint} profile={profile} />
 
       <mesh position={[0, spec.height * 0.5 + spec.crown * 0.5, 0]}>
         <boxGeometry
@@ -505,10 +662,17 @@ function CyberpunkTower({
         </mesh>
       ))}
 
-      {rows.map((row, rowIndex) => (
+      {rows.map((row, rowIndex) => {
+        const fracture =
+          profile.facade === "fractured"
+            ? Math.sin(rowIndex * 2.1 + index) * spec.width * 0.12
+            : 0;
+        const rowHeight = profile.facade === "server-mesh" ? 0.07 : 0.1;
+
+        return (
         <group key={rowIndex}>
-          <mesh position={[0, row.y, spec.depth * 0.515]}>
-            <boxGeometry args={[row.width, 0.1, 0.08]} />
+          <mesh position={[fracture, row.y, spec.depth * 0.515]}>
+            <boxGeometry args={[row.width, rowHeight, 0.08]} />
             <meshBasicMaterial
               ref={(material) => {
                 if (material) rowMaterials.current[rowIndex] = material;
@@ -520,8 +684,8 @@ function CyberpunkTower({
               depthWrite={false}
             />
           </mesh>
-          <mesh position={[0, row.y + 0.26, -spec.depth * 0.515]}>
-            <boxGeometry args={[row.width * 0.86, 0.08, 0.08]} />
+          <mesh position={[fracture * 0.65, row.y + 0.26, -spec.depth * 0.515]}>
+            <boxGeometry args={[row.width * 0.86, rowHeight * 0.8, 0.08]} />
             <meshBasicMaterial
               color={tint}
               transparent
@@ -531,7 +695,8 @@ function CyberpunkTower({
             />
           </mesh>
         </group>
-      ))}
+        );
+      })}
 
       {spec.flavor !== "residential" ? (
         <VerticalBillboard spec={spec} tint={tint} progress={progress} />
@@ -541,40 +706,77 @@ function CyberpunkTower({
         <ServiceBridge spec={spec} tint={NEON_SOFT} neonRise={neonRise} />
       ) : null}
 
-      <RooftopMachinery spec={spec} tint={tint} pulseRef={beaconMaterial} />
+      <RooftopMachinery
+        spec={spec}
+        tint={tint}
+        pulseRef={beaconMaterial}
+        profile={profile}
+      />
     </group>
   );
 }
 
-export function TowerField({ progress }: { progress: number }) {
+export function TowerField({
+  progress,
+  hoverRef,
+}: {
+  progress: number;
+  hoverRef: MutableRefObject<HoverState>;
+}) {
   const towers = useMemo<TowerSpec[]>(() => {
     const rng = createRng(2026);
     const specs: TowerSpec[] = [];
+    let z = -12;
 
     for (let row = 0; row < 16; row += 1) {
-      const z = -12 - row * 10.5;
+      z -= range(rng, 8.4, 12.8);
+      const sequence = row / 15;
+      const commercialRise = Math.min(1, Math.max(0, (sequence - 0.08) / 0.3));
+      const coreRise = Math.min(1, Math.max(0, (sequence - 0.34) / 0.34));
+      const ghostRise = Math.min(1, Math.max(0, (sequence - 0.64) / 0.3));
+      const flavorRoll = rng();
       const flavor: TowerSpec["flavor"] =
-        row > 11
+        flavorRoll < ghostRise * 0.72
           ? "ghost"
-          : row > 8
+          : flavorRoll < ghostRise * 0.72 + coreRise * 0.58
             ? "core"
-            : row > 4
+            : flavorRoll <
+                ghostRise * 0.72 + coreRise * 0.58 + commercialRise * 0.74
               ? "market"
               : "residential";
+      const heightLift = coreRise * 13 - ghostRise * 5;
 
       ([-1, 1] as const).forEach((side, column) => {
         specs.push({
-          x: side * range(rng, 10.5, row > 10 ? 18.5 : 15.5) + column * 1.2,
+          x:
+            side * range(rng, 10.5, row > 10 ? 19 : 15.8) +
+            column * range(rng, 0.3, 1.8),
           z,
           width: range(rng, 2.2, 5.2),
           depth: range(rng, 2.2, 5.6),
-          height: range(rng, row < 3 ? 18 : 12, row > 8 ? 34 : 28),
+          height: range(rng, 13 + coreRise * 3, 23 + heightLift),
           crown: range(rng, 1.4, 4.8),
           side,
           flavor,
           bridge: rng() > 0.72,
         });
       });
+
+      if (row % 4 === 1 || row === 11) {
+        const side = rng() > 0.5 ? -1 : 1;
+
+        specs.push({
+          x: side * range(rng, 7.6, 10.4),
+          z: z + range(rng, -2.8, 2.8),
+          width: range(rng, 2, 3.6),
+          depth: range(rng, 2.4, 4.2),
+          height: range(rng, 11 + coreRise * 2, 18 + heightLift * 0.7),
+          crown: range(rng, 1.2, 3.6),
+          side,
+          flavor,
+          bridge: rng() > 0.58,
+        });
+      }
     }
 
     return specs;
@@ -588,8 +790,14 @@ export function TowerField({ progress }: { progress: number }) {
           spec={tower}
           progress={progress}
           index={index}
+          hoverRef={hoverRef}
         />
       ))}
+      <BuildingConnections
+        towers={towers}
+        progress={progress}
+        hoverRef={hoverRef}
+      />
     </group>
   );
 }

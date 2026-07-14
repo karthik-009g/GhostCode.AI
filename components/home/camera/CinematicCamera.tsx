@@ -1,13 +1,12 @@
 import { useFrame } from "@react-three/fiber";
 import type { MutableRefObject } from "react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 import {
-  CAMERA_KEYS,
   type HoverState,
-  sampleTrack,
 } from "../shared";
+import { sampleDirectedCamera } from "./CameraKeyframes";
 
 type CinematicCameraProps = {
   progress: number;
@@ -21,51 +20,78 @@ export function CinematicCamera({
   const desiredPosition = useRef(new THREE.Vector3());
   const desiredTarget = useRef(new THREE.Vector3());
   const currentPosition = useRef(
-    new THREE.Vector3(0, 2.8, 20),
+    new THREE.Vector3(5.8, 28, 44),
   );
   const currentTarget = useRef(
-    new THREE.Vector3(0, 2, -28),
+    new THREE.Vector3(-2.4, 4.5, -70),
   );
+  const currentFov = useRef(46);
+  const pointerTarget = useRef({
+    x: 0,
+    y: 0,
+    active: false,
+  });
+
+  useEffect(() => {
+    const updatePointer = (clientX: number, clientY: number) => {
+      pointerTarget.current.x = (clientX / window.innerWidth) * 2 - 1;
+      pointerTarget.current.y = -(clientY / window.innerHeight) * 2 + 1;
+      pointerTarget.current.active = true;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      updatePointer(event.clientX, event.clientY);
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+
+      if (touch) {
+        updatePointer(touch.clientX, touch.clientY);
+      }
+    };
+
+    window.addEventListener("pointermove", onPointerMove, {
+      passive: true,
+    });
+    window.addEventListener("touchmove", onTouchMove, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
 
   useFrame((state, delta) => {
     const hover = hoverRef.current;
+    const pointer = pointerTarget.current.active
+      ? pointerTarget.current
+      : state.pointer;
 
     hover.x +=
-      (state.pointer.x - hover.x) *
-      (1 - Math.exp(-4.5 * delta));
+      (pointer.x - hover.x) *
+      (1 - Math.exp(-7 * delta));
     hover.y +=
-      (state.pointer.y - hover.y) *
-      (1 - Math.exp(-4.5 * delta));
+      (pointer.y - hover.y) *
+      (1 - Math.exp(-7 * delta));
     hover.energy +=
-      ((Math.abs(state.pointer.x) +
-        Math.abs(state.pointer.y) * 0.6) -
+      ((Math.abs(pointer.x) +
+        Math.abs(pointer.y) * 0.65) -
         hover.energy) *
-      (1 - Math.exp(-2.8 * delta));
+      (1 - Math.exp(-5 * delta));
 
-    const basePosition = sampleTrack(
-      CAMERA_KEYS,
+    const shot = sampleDirectedCamera(
       progress,
-      "position",
+      desiredPosition.current,
+      desiredTarget.current,
     );
-    const baseTarget = sampleTrack(
-      CAMERA_KEYS,
-      progress,
-      "target",
-    );
-    const breath =
-      Math.sin(state.clock.elapsedTime * 0.42) *
-      0.14;
 
-    desiredPosition.current.copy(basePosition);
-    desiredPosition.current.x += hover.x * 1.75;
-    desiredPosition.current.y +=
-      hover.y * 0.55 + breath;
-    desiredPosition.current.z += Math.abs(hover.x) * 0.8;
-
-    desiredTarget.current.copy(baseTarget);
-    desiredTarget.current.x += hover.x * 4.2;
-    desiredTarget.current.y +=
-      hover.y * 0.8 + breath * 0.45;
+    desiredPosition.current.x += hover.x * 0.45;
+    desiredPosition.current.y += hover.y * 0.18;
+    desiredTarget.current.x += hover.x * 1.15;
+    desiredTarget.current.y += hover.y * 0.28;
 
     currentPosition.current.lerp(
       desiredPosition.current,
@@ -75,14 +101,29 @@ export function CinematicCamera({
       desiredTarget.current,
       1 - Math.exp(-3.2 * delta),
     );
+    currentFov.current = THREE.MathUtils.damp(
+      currentFov.current,
+      shot.fov,
+      2.2,
+      delta,
+    );
 
     state.camera.position.copy(currentPosition.current);
-    state.camera.lookAt(currentTarget.current);
-    state.camera.rotation.z =
+    const camera = state.camera as THREE.PerspectiveCamera;
+
+    if (Math.abs(camera.fov - currentFov.current) > 0.001) {
+      camera.fov = currentFov.current;
+      camera.updateProjectionMatrix();
+    }
+
+    const bank =
+      shot.bank +
       hover.x * -0.022 +
       hover.y * 0.012 +
-      Math.sin(state.clock.elapsedTime * 0.3) *
-        0.003;
+      0;
+
+    state.camera.up.set(Math.sin(bank), Math.cos(bank), 0);
+    state.camera.lookAt(currentTarget.current);
   });
 
   return null;

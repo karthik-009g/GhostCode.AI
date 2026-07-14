@@ -5,19 +5,15 @@ import {
   Text,
   RoundedBox,
 } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
 import {
   useEffect,
   useMemo,
-  useRef,
-  useState,
 } from "react";
 import * as THREE from "three";
 
 import { COLORS } from "@/constants/colors";
 import {
   ARCHITECTURE_GRAPH,
-  SCENE,
 } from "@/constants/scene";
 import { ParticleSystem } from "@/components/particles/ParticleSystem";
 import { useAnimationStore } from "@/stores/animation.store";
