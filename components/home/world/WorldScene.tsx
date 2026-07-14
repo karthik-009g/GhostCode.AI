@@ -741,11 +741,11 @@ function WorldRig({
     }
 
     const hover = hoverRef.current;
-    const desiredX = progress * 1.6 + hover.x * 0.65;
+    const desiredX = hover.x * 0.12;
     const desiredY = Math.sin(state.clock.elapsedTime * 0.16) * 0.16;
-    const desiredZ = -progress * 14;
-    const desiredRotY = hover.x * -0.05 + progress * 0.08;
-    const desiredRotZ = hover.x * -0.015;
+    const desiredZ = 0;
+    const desiredRotY = hover.x * -0.008;
+    const desiredRotZ = 0;
 
     group.position.x +=
       (desiredX - group.position.x) *

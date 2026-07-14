@@ -32,7 +32,7 @@ export default function CyberpunkStreetPage() {
     <main
       style={{
         position: "relative",
-        minHeight: "3000vh",
+        minHeight: "2100vh",
         background: BG,
       }}
     >

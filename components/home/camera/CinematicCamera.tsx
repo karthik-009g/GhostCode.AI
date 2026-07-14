@@ -118,8 +118,8 @@ export function CinematicCamera({
 
     const bank =
       shot.bank +
-      hover.x * -0.022 +
-      hover.y * 0.012 +
+      hover.x * -0.007 +
+      hover.y * 0.003 +
       0;
 
     state.camera.up.set(Math.sin(bank), Math.cos(bank), 0);
