@@ -440,6 +440,125 @@ function StreetBase({
   );
 }
 
+function RoadInfrastructureDetails({
+  progress,
+}: {
+  progress: number;
+}) {
+  const hatchRef = useRef<THREE.InstancedMesh>(null);
+  const conduitRef = useRef<THREE.InstancedMesh>(null);
+  const vehicleRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const glow = 0.16 + smoothSegment(progress, 0.16, 0.7) * 0.24;
+  const hatches = useMemo(
+    () =>
+      Array.from({ length: 34 }, (_, index) => ({
+        x: index % 2 === 0 ? -3.2 : 3.2,
+        z: 36 - index * 5.4,
+        rotation: index % 3 === 0 ? Math.PI / 2 : 0,
+      })),
+    [],
+  );
+  const conduits = useMemo(
+    () =>
+      Array.from({ length: 18 }, (_, index) => ({
+        x: index % 2 === 0 ? -6.25 : 6.25,
+        z: 32 - index * 10.2,
+        length: 4.8 + (index % 4) * 0.9,
+      })),
+    [],
+  );
+  const vehicles = useMemo(
+    () =>
+      Array.from({ length: 5 }, (_, index) => ({
+        lane: index % 2 === 0 ? -2.2 : 2.2,
+        phase: index * 0.19,
+        speed: 0.025 + index * 0.004,
+      })),
+    [],
+  );
+
+  useFrame(({ clock }) => {
+    const hatchesMesh = hatchRef.current;
+    const conduitMesh = conduitRef.current;
+    const vehiclesMesh = vehicleRef.current;
+
+    if (hatchesMesh) {
+      hatches.forEach((hatch, index) => {
+        dummy.position.set(hatch.x, 0.135, hatch.z - 52);
+        dummy.rotation.set(-Math.PI / 2, 0, hatch.rotation);
+        dummy.scale.set(0.9, 0.55, 0.04);
+        dummy.updateMatrix();
+        hatchesMesh.setMatrixAt(index, dummy.matrix);
+      });
+      hatchesMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    if (conduitMesh) {
+      conduits.forEach((conduit, index) => {
+        dummy.position.set(conduit.x, 0.19, conduit.z - 52);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(0.08, 0.08, conduit.length);
+        dummy.updateMatrix();
+        conduitMesh.setMatrixAt(index, dummy.matrix);
+      });
+      conduitMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    if (vehiclesMesh) {
+      vehicles.forEach((vehicle, index) => {
+        const travel = (vehicle.phase + clock.elapsedTime * vehicle.speed) % 1;
+        dummy.position.set(vehicle.lane, 0.38, 38 - travel * 178 - 52);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(0.54, 0.24, 0.9);
+        dummy.updateMatrix();
+        vehiclesMesh.setMatrixAt(index, dummy.matrix);
+      });
+      vehiclesMesh.instanceMatrix.needsUpdate = true;
+    }
+  });
+
+  return (
+    <group position={[0, 0, 0]}>
+      <instancedMesh ref={hatchRef} args={[undefined, undefined, hatches.length]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#202932" roughness={0.58} metalness={0.38} />
+      </instancedMesh>
+      <instancedMesh ref={conduitRef} args={[undefined, undefined, conduits.length]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#313b44" roughness={0.44} metalness={0.7} emissive={NEON_SOFT} emissiveIntensity={0.04} />
+      </instancedMesh>
+      <instancedMesh ref={vehicleRef} args={[undefined, undefined, vehicles.length]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#202a32" roughness={0.32} metalness={0.64} emissive={WARM} emissiveIntensity={0.04 + glow * 0.08} />
+      </instancedMesh>
+
+      {[-1, 1].map((side) => (
+        <group key={side}>
+          {Array.from({ length: 9 }, (_, index) => (
+            <group key={index} position={[side * 10.7, 0.12, 30 - index * 20 - 52]}>
+              <mesh>
+                <boxGeometry args={[1.25, 0.12, 1.6]} />
+                <meshStandardMaterial color="#151d25" roughness={0.62} metalness={0.42} />
+              </mesh>
+              <mesh position={[0, 0.12, 0.7]}>
+                <boxGeometry args={[0.82, 0.05, 0.08]} />
+                <meshBasicMaterial color={side < 0 ? NEON_SOFT : WARM} transparent opacity={glow} blending={THREE.AdditiveBlending} depthWrite={false} />
+              </mesh>
+              {index % 3 === 0 ? (
+                <mesh position={[side * 0.38, 1.05, 0]}>
+                  <cylinderGeometry args={[0.05, 0.08, 1.9, 8]} />
+                  <meshStandardMaterial color="#28323d" roughness={0.46} metalness={0.66} emissive={side < 0 ? NEON : WARM} emissiveIntensity={0.08} />
+                </mesh>
+              ) : null}
+            </group>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function RoadEvolution({
   progress,
 }: {
@@ -723,11 +842,9 @@ function RoadResponse({
 }
 
 function WorldRig({
-  progress,
   hoverRef,
   children,
 }: {
-  progress: number;
   hoverRef: MutableRefObject<HoverState>;
   children: ReactNode;
 }) {
@@ -2233,8 +2350,9 @@ export function WorldScene({
     <>
       <CinematicCamera progress={progress} hoverRef={hoverRef} />
       <StreetAtmosphere progress={progress} />
-      <WorldRig progress={progress} hoverRef={hoverRef}>
+      <WorldRig hoverRef={hoverRef}>
         <StreetBase progress={progress} />
+        <RoadInfrastructureDetails progress={progress} />
         <RoadEvolution progress={progress} />
         <HoverWakeField progress={progress} hoverRef={hoverRef} />
         <RoadResponse progress={progress} hoverRef={hoverRef} />

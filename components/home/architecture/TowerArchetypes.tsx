@@ -447,6 +447,180 @@ function VerticalBillboard({
   );
 }
 
+function EngineeringDetailKit({
+  spec,
+  tint,
+  profile,
+  neonRise,
+  ghostRise,
+}: {
+  spec: TowerSpec;
+  tint: string;
+  profile: ArchitectureProfile;
+  neonRise: number;
+  ghostRise: number;
+}) {
+  const structuralOpacity = 0.2 + neonRise * 0.12 + ghostRise * 0.18;
+  const serviceSide = profile.secondaryShaft ? -spec.side : spec.side;
+
+  return (
+    <>
+      {[-1, 1].map((side) => (
+        <group
+          key={`brace-${side}`}
+          position={[side * spec.width * 0.54, spec.height * 0.03, spec.depth * 0.34]}
+          rotation={[0, 0, side * 0.18]}
+        >
+          {[-0.22, 0.22].map((offset) => (
+            <mesh key={offset} position={[0, spec.height * offset, 0]}>
+              <boxGeometry args={[0.06, spec.height * 0.34, 0.08]} />
+              <meshStandardMaterial
+                color="#2c3540"
+                roughness={0.46}
+                metalness={0.62}
+                emissive={tint}
+                emissiveIntensity={0.02 + ghostRise * 0.05}
+              />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      <group position={[serviceSide * spec.width * 0.57, spec.height * 0.02, -spec.depth * 0.42]}>
+        {[-0.26, 0, 0.26].map((offset, index) => (
+          <mesh key={offset} position={[0, spec.height * offset, index * 0.13]}>
+            <cylinderGeometry args={[0.045, 0.045, spec.height * 0.42, 8]} />
+            <meshStandardMaterial
+              color={index === 1 ? "#46515c" : "#29333e"}
+              roughness={0.38}
+              metalness={0.74}
+            />
+          </mesh>
+        ))}
+        {[-0.32, 0.32].map((offset) => (
+          <mesh key={`rail-${offset}`} position={[0, spec.height * offset, 0.22]}>
+            <boxGeometry args={[0.18, 0.08, spec.depth * 0.34]} />
+            <meshBasicMaterial
+              color={tint}
+              transparent
+              opacity={structuralOpacity}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </group>
+
+      {[-0.24, 0.04, 0.32].map((level, index) => (
+        <group key={`platform-${level}`} position={[0, spec.height * level, spec.depth * 0.58]}>
+          <mesh>
+            <boxGeometry args={[spec.width * 0.86, 0.08, 0.28]} />
+            <meshStandardMaterial
+              color="#202832"
+              roughness={0.52}
+              metalness={0.48}
+            />
+          </mesh>
+          <mesh position={[0, 0.1, 0.18]}>
+            <boxGeometry args={[spec.width * 0.72, 0.035, 0.04]} />
+            <meshBasicMaterial
+              color={index === 1 ? WARM : tint}
+              transparent
+              opacity={0.16 + neonRise * 0.12}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      <group position={[0, -spec.height * 0.4, -spec.depth * 0.58]}>
+        {[-0.28, 0, 0.28].map((offset) => (
+          <mesh key={offset} position={[spec.width * offset, 0, 0]}>
+            <boxGeometry args={[spec.width * 0.18, 0.5, 0.16]} />
+            <meshStandardMaterial
+              color="#303a43"
+              roughness={0.64}
+              metalness={0.38}
+              emissive={tint}
+              emissiveIntensity={0.03 + neonRise * 0.04}
+            />
+          </mesh>
+        ))}
+      </group>
+    </>
+  );
+}
+
+function MaintenanceDroneField({
+  towers,
+  progress,
+}: {
+  towers: TowerSpec[];
+  progress: number;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const lightRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const drones = useMemo(
+    () =>
+      towers
+        .filter((_, index) => index % 5 === 0)
+        .slice(0, 12)
+        .map((tower, index) => ({
+          x: tower.x + tower.side * 1.8,
+          y: tower.height * 0.72 + (index % 3) * 1.1,
+          z: tower.z + (index % 2 ? -1.6 : 1.4),
+          phase: index * 0.73,
+        })),
+    [towers],
+  );
+
+  useFrame(({ clock }) => {
+    const body = meshRef.current;
+    const light = lightRef.current;
+
+    if (!body || !light) return;
+
+    const time = clock.elapsedTime;
+    const visibility = smoothSegment(progress, 0.08, 0.82);
+
+    drones.forEach((drone, index) => {
+      const orbit = time * 0.18 + drone.phase;
+      dummy.position.set(
+        drone.x + Math.sin(orbit) * 0.6,
+        drone.y + Math.sin(orbit * 1.7) * 0.25,
+        drone.z + Math.cos(orbit) * 0.8,
+      );
+      dummy.rotation.set(0.12, orbit, 0);
+      dummy.scale.set(0.34, 0.12, 0.2);
+      dummy.updateMatrix();
+      body.setMatrixAt(index, dummy.matrix);
+
+      dummy.scale.setScalar(0.12 + visibility * 0.08);
+      dummy.position.y += 0.04;
+      dummy.updateMatrix();
+      light.setMatrixAt(index, dummy.matrix);
+    });
+
+    body.instanceMatrix.needsUpdate = true;
+    light.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <>
+      <instancedMesh ref={meshRef} args={[undefined, undefined, drones.length]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#2b363f" roughness={0.36} metalness={0.72} />
+      </instancedMesh>
+      <instancedMesh ref={lightRef} args={[undefined, undefined, drones.length]}>
+        <octahedronGeometry args={[1, 0]} />
+        <meshBasicMaterial color={NEON_SOFT} transparent opacity={0.62} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </instancedMesh>
+    </>
+  );
+}
+
 function CyberpunkTower({
   spec,
   progress,
@@ -623,6 +797,14 @@ function CyberpunkTower({
 
       <FacadeDetailModules spec={spec} tint={tint} profile={profile} />
 
+      <EngineeringDetailKit
+        spec={spec}
+        tint={tint}
+        profile={profile}
+        neonRise={neonRise}
+        ghostRise={ghostRise}
+      />
+
       <mesh position={[0, spec.height * 0.5 + spec.crown * 0.5, 0]}>
         <boxGeometry
           args={[spec.width * crownScale, spec.crown, spec.depth * crownScale]}
@@ -793,6 +975,7 @@ export function TowerField({
           hoverRef={hoverRef}
         />
       ))}
+      <MaintenanceDroneField towers={towers} progress={progress} />
       <BuildingConnections
         towers={towers}
         progress={progress}

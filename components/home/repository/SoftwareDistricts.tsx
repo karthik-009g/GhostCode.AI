@@ -100,6 +100,71 @@ function DataPackets({ progress }: { progress: number }) {
   );
 }
 
+function RepositoryGateway({ progress }: { progress: number }) {
+  const rise = smoothSegment(progress, 0.56, 0.64);
+  const cubeRef = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    if (!cubeRef.current) return;
+    cubeRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.18) * 0.16;
+    cubeRef.current.position.y = 14 + Math.sin(clock.elapsedTime * 0.42) * 0.32;
+  });
+
+  return (
+    <group visible={progress > 0.53 && progress < 0.69} position={[0, 0, -278]}>
+      <group ref={cubeRef}>
+        <mesh>
+          <boxGeometry args={[9.5, 9.5, 9.5]} />
+          <meshPhysicalMaterial
+            color="#102936"
+            roughness={0.08}
+            metalness={0.22}
+            transmission={0.48}
+            transparent
+            opacity={0.62}
+            emissive={NEON_SOFT}
+            emissiveIntensity={rise * 0.16}
+          />
+        </mesh>
+        {[-1, 1].map((axis) => (
+          <mesh key={axis} position={[0, axis * 5.1, 0]}>
+            <boxGeometry args={[12.5, 0.08, 12.5]} />
+            <meshBasicMaterial
+              color={axis < 0 ? WARM : NEON_SOFT}
+              transparent
+              opacity={rise * 0.24}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+        {[0, Math.PI / 2].map((rotation) => (
+          <mesh key={rotation} rotation={[0, rotation, 0]}>
+            <boxGeometry args={[0.08, 12.2, 12.2]} />
+            <meshBasicMaterial
+              color={NEON_SOFT}
+              transparent
+              opacity={rise * 0.18}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </group>
+      <mesh position={[0, 4.8, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[13, 13.18, 96]} />
+        <meshBasicMaterial
+          color={NEON_SOFT}
+          transparent
+          opacity={rise * 0.34}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 function FolderDistrict({ progress, snapshot, start, end, z }: DistrictProps) {
   const rise = smoothSegment(progress, start - 0.02, end);
 
@@ -112,6 +177,7 @@ function FolderDistrict({ progress, snapshot, start, end, z }: DistrictProps) {
         const x = side * (8.5 + (index % 3) * 3.2);
         const nodeZ = z - Math.floor(index / 2) * 12;
         const color = node.kind === "service" ? WARM : NEON;
+        const rooms = Math.max(3, Math.round(node.weight * 8));
 
         return (
           <group key={node.id} position={[x, height * 0.5, nodeZ]}>
@@ -129,6 +195,29 @@ function FolderDistrict({ progress, snapshot, start, end, z }: DistrictProps) {
                 <meshBasicMaterial color={floor % 3 === 0 ? WARM : NEON_SOFT} transparent opacity={rise * 0.34} blending={THREE.AdditiveBlending} depthWrite={false} />
               </mesh>
             ))}
+            {Array.from({ length: rooms }, (_, room) => (
+              <mesh
+                key={`room-${room}`}
+                position={[
+                  -0.92 + (room % 3) * 0.92,
+                  -height * 0.32 + Math.floor(room / 3) * 1.28,
+                  1.91,
+                ]}
+              >
+                <boxGeometry args={[0.44, 0.34, 0.05]} />
+                <meshBasicMaterial
+                  color={room % 4 === 0 ? WARM : NEON_SOFT}
+                  transparent
+                  opacity={rise * (0.28 + node.weight * 0.24)}
+                  blending={THREE.AdditiveBlending}
+                  depthWrite={false}
+                />
+              </mesh>
+            ))}
+            <mesh position={[0, height * 0.5 + 0.48, 0]}>
+              <boxGeometry args={[3.8, 0.38, 4.1]} />
+              <meshStandardMaterial color="#222a32" roughness={0.4} metalness={0.54} />
+            </mesh>
           </group>
         );
       })}
@@ -161,6 +250,34 @@ function DependencyCathedral({ progress, snapshot, start, end, z }: DistrictProp
 
   return (
     <group visible={progress > start - 0.08 && progress < end + 0.1}>
+      <group position={[0, 19, z - 3]}>
+        {[11, 15, 19].map((radius, index) => (
+          <mesh key={radius} rotation={[Math.PI / 2.25, 0, index * 0.18]}>
+            <ringGeometry args={[radius, radius + 0.12, 96]} />
+            <meshBasicMaterial
+              color={index === 1 ? WARM : NEON_SOFT}
+              transparent
+              opacity={rise * (0.18 + index * 0.05)}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        ))}
+        <mesh>
+          <icosahedronGeometry args={[3.8, 1]} />
+          <meshPhysicalMaterial
+            color="#0d2630"
+            roughness={0.12}
+            metalness={0.42}
+            transmission={0.28}
+            transparent
+            opacity={0.72}
+            emissive={NEON}
+            emissiveIntensity={rise * 0.16}
+          />
+        </mesh>
+      </group>
       <lineSegments>
         <bufferGeometry><bufferAttribute attach="attributes-position" args={[graph.vertices, 3]} /></bufferGeometry>
         <lineBasicMaterial color={NEON_SOFT} transparent opacity={rise * 0.55} />
@@ -188,9 +305,19 @@ function ServiceMetropolis({ progress, snapshot, start, end, z }: DistrictProps)
         return <group key={service} position={[x, height * 0.5, z - (index % 2) * 7]}>
           <mesh><cylinderGeometry args={[1.7, 2.2, height, 10]} /><meshStandardMaterial color="#102632" roughness={0.26} metalness={0.76} emissive={index % 2 ? WARM : NEON} emissiveIntensity={rise * 0.12} /></mesh>
           {[0.2, 0.45, 0.7].map((level) => <mesh key={level} position={[0, -height * 0.5 + height * level, 0]}><torusGeometry args={[2.3, 0.05, 6, 32]} /><meshBasicMaterial color={index % 2 ? WARM : NEON_SOFT} transparent opacity={rise * 0.52} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>)}
+          <mesh position={[0, height * 0.5 + 2.5, 0]}>
+            <cylinderGeometry args={[0.12, 0.3, 5, 8]} />
+            <meshBasicMaterial color={index % 2 ? WARM : NEON_SOFT} transparent opacity={rise * 0.58} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
         </group>;
       })}
       {bridges.map((service, index) => <mesh key={service} position={[-7 + index * 7, 13, z - 3.5]} rotation={[0, 0, 0]}><boxGeometry args={[5.3, 0.12, 0.16]} /><meshBasicMaterial color={WARM} transparent opacity={rise * 0.4} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>)}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * 9.8, 7.5, z - 3]} rotation={[0, 0, side * 0.08]}>
+          <boxGeometry args={[0.16, 0.16, 38]} />
+          <meshBasicMaterial color={NEON_SOFT} transparent opacity={rise * 0.24} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -206,6 +333,19 @@ function ExecutionLayer({ progress, start, end, z }: Omit<DistrictProps, "snapsh
     <group ref={rotorRef}>{[5, 8, 11].map((radius, index) => <mesh key={radius} rotation={[0.35 + index * 0.26, 0, index * 0.6]}><torusGeometry args={[radius, 0.16, 8, 48]} /><meshBasicMaterial color={index === 1 ? WARM : NEON_SOFT} transparent opacity={rise * 0.44} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>)}</group>
     <mesh><cylinderGeometry args={[3.2, 4.2, 18, 12]} /><meshStandardMaterial color="#132936" roughness={0.25} metalness={0.8} emissive={NEON} emissiveIntensity={rise * 0.14} /></mesh>
     {[-1, 1].map((side) => <mesh key={side} position={[side * 11, 1, 0]} rotation={[0, 0, side * 0.2]}><boxGeometry args={[1.3, 14, 2.2]} /><meshStandardMaterial color="#17212a" roughness={0.42} metalness={0.62} emissive={WARM} emissiveIntensity={rise * 0.08} /></mesh>)}
+    <mesh position={[0, -8.8, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[6.4, 13.4, 10]} />
+      <meshStandardMaterial color="#18242d" roughness={0.5} metalness={0.62} emissive={NEON} emissiveIntensity={rise * 0.08} />
+    </mesh>
+    {Array.from({ length: 8 }, (_, index) => {
+      const angle = (index / 8) * Math.PI * 2;
+      return (
+        <mesh key={index} position={[Math.cos(angle) * 7.7, -1.6, Math.sin(angle) * 7.7]}>
+          <boxGeometry args={[0.46, 13.2, 0.46]} />
+          <meshStandardMaterial color="#22303a" roughness={0.46} metalness={0.56} emissive={NEON_SOFT} emissiveIntensity={rise * 0.05} />
+        </mesh>
+      );
+    })}
   </group>;
 }
 
@@ -223,6 +363,16 @@ function IntelligenceArray({ progress, start, end, z }: Omit<DistrictProps, "sna
 function GhostRepositoryDistrict({ progress, snapshot, start, end, z }: DistrictProps) {
   const rise = smoothSegment(progress, start - 0.02, end);
   const abandoned = snapshot.issues.slice(0, 4);
+  const ghostRef = useRef<THREE.Group[]>([]);
+
+  useFrame(({ clock }) => {
+    ghostRef.current.forEach((ghost, index) => {
+      if (!ghost) return;
+      ghost.position.y = Math.sin(clock.elapsedTime * 0.72 + index) * 0.38;
+      ghost.rotation.y = Math.sin(clock.elapsedTime * 0.5 + index) * 0.5;
+    });
+  });
+
   return <group visible={progress > start - 0.07 && progress < end + 0.13}>
     {abandoned.map((issue, index) => {
       const x = index % 2 === 0 ? -9 : 9;
@@ -236,6 +386,29 @@ function GhostRepositoryDistrict({ progress, snapshot, start, end, z }: District
           <mesh position={[0, 0.85, 0]}><boxGeometry args={[2.6, 0.04, 0.03]} /><meshBasicMaterial color={GHOST} transparent opacity={rise * 0.54} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
         </group>)}
         <mesh position={[0, 4.4, 2.15]} rotation={[0.18, 0, 0]}><planeGeometry args={[3.8, 2.6]} /><meshBasicMaterial color="#30131e" transparent opacity={rise * 0.3} side={THREE.DoubleSide} /></mesh>
+        <group
+          position={[index % 2 ? -1.4 : 1.4, 2.8, 2.45]}
+          ref={(group) => {
+            if (group) ghostRef.current[index] = group;
+          }}
+        >
+          <mesh>
+            <sphereGeometry args={[0.42, 14, 10]} />
+            <meshBasicMaterial color={GHOST_SOFT} transparent opacity={rise * 0.58} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
+          <mesh position={[0, -0.58, 0]}>
+            <coneGeometry args={[0.48, 1.25, 10, 1, true]} />
+            <meshBasicMaterial color={GHOST} transparent opacity={rise * 0.28} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0.48, 0.12, 0]}>
+            <boxGeometry args={[0.9, 0.05, 0.04]} />
+            <meshBasicMaterial color={GHOST_SOFT} transparent opacity={rise * 0.44} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
+        </group>
+        <mesh position={[0.6, -3.2, 2.28]} rotation={[0, 0, -0.08]}>
+          <boxGeometry args={[0.12, 7.2, 0.08]} />
+          <meshBasicMaterial color={GHOST} transparent opacity={rise * 0.32} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
       </group>;
     })}
   </group>;
@@ -247,8 +420,18 @@ function ArchiveAndRecovery({ progress, start, end, z }: Omit<DistrictProps, "sn
     {Array.from({ length: 9 }, (_, index) => <group key={index} position={[(index - 4) * 3.7, (index % 2) * 2.3, -(index % 3) * 2.1]} rotation={[0, index * 0.1, 0]}>
       <mesh><boxGeometry args={[2.5, 10 + (index % 3) * 3, 2.4]} /><meshStandardMaterial color={index < 5 ? "#17161d" : "#10242a"} roughness={0.5} metalness={0.54} emissive={index < 5 ? GHOST : NEON} emissiveIntensity={rise * 0.08} /></mesh>
       <mesh position={[0, 0, 1.24]}><boxGeometry args={[1.92, 5.4, 0.05]} /><meshBasicMaterial color={index < 5 ? GHOST_SOFT : NEON_SOFT} transparent opacity={rise * 0.25} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
+      {index > 3 ? (
+        <mesh position={[0, 7.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[1.55, 1.64, 36]} />
+          <meshBasicMaterial color={NEON_SOFT} transparent opacity={rise * 0.42} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      ) : null}
     </group>)}
     <mesh position={[0, 13, 0]}><boxGeometry args={[30, 0.14, 0.14]} /><meshBasicMaterial color={NEON_SOFT} transparent opacity={rise * 0.42} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
+    <mesh position={[0, 15.5, -1.4]} rotation={[0, 0, 0]}>
+      <boxGeometry args={[36, 0.08, 0.08]} />
+      <meshBasicMaterial color={WARM} transparent opacity={rise * 0.24} blending={THREE.AdditiveBlending} depthWrite={false} />
+    </mesh>
   </group>;
 }
 
@@ -274,6 +457,7 @@ export function SoftwareDistricts({ progress, snapshot }: SoftwareDistrictsProps
   return <>
     <SoftwareCorridor progress={progress} />
     <DataPackets progress={progress} />
+    <RepositoryGateway progress={progress} />
     <FolderDistrict progress={progress} snapshot={snapshot} start={0.57} end={0.65} z={-278} />
     <DependencyCathedral progress={progress} snapshot={snapshot} start={0.64} end={0.71} z={-354} />
     <ServiceMetropolis progress={progress} snapshot={snapshot} start={0.7} end={0.77} z={-432} />

@@ -65,6 +65,7 @@ export function CinematicCamera({
   }, []);
 
   useFrame((state, delta) => {
+    const time = state.clock.elapsedTime;
     const hover = hoverRef.current;
     const pointer = pointerTarget.current.active
       ? pointerTarget.current
@@ -88,10 +89,19 @@ export function CinematicCamera({
       desiredTarget.current,
     );
 
+    const revealPulse =
+      Math.exp(-Math.pow((progress - 0.605) / 0.018, 2)) +
+      Math.exp(-Math.pow((progress - 0.69) / 0.02, 2)) +
+      Math.exp(-Math.pow((progress - 0.78) / 0.018, 2)) +
+      Math.exp(-Math.pow((progress - 0.865) / 0.018, 2)) +
+      Math.exp(-Math.pow((progress - 0.95) / 0.015, 2));
+    const breathing = Math.sin(time * 0.42) * 0.055;
+
     desiredPosition.current.x += hover.x * 0.45;
-    desiredPosition.current.y += hover.y * 0.18;
+    desiredPosition.current.y += hover.y * 0.18 + breathing + revealPulse * 0.18;
+    desiredPosition.current.z += revealPulse * 0.7;
     desiredTarget.current.x += hover.x * 1.15;
-    desiredTarget.current.y += hover.y * 0.28;
+    desiredTarget.current.y += hover.y * 0.28 + breathing * 0.4;
 
     currentPosition.current.lerp(
       desiredPosition.current,
@@ -103,7 +113,7 @@ export function CinematicCamera({
     );
     currentFov.current = THREE.MathUtils.damp(
       currentFov.current,
-      shot.fov,
+      shot.fov - revealPulse * 0.8,
       2.2,
       delta,
     );
@@ -120,7 +130,7 @@ export function CinematicCamera({
       shot.bank +
       hover.x * -0.007 +
       hover.y * 0.003 +
-      0;
+      Math.sin(time * 0.28) * 0.002;
 
     state.camera.up.set(Math.sin(bank), Math.cos(bank), 0);
     state.camera.lookAt(currentTarget.current);
